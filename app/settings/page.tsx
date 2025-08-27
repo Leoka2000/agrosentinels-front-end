@@ -1,8 +1,6 @@
-
-
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isAuthenticated } from "@/lib/auth";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -20,11 +18,20 @@ import {
 } from "@/components/ui/sidebar";
 
 import { ThemeSwitch } from "@/components/theme-switch";
-import  SearchForm  from "@/components/SearchForm";
-import DashboardContent from "./DashboardContent";
+import SearchForm from "@/components/SearchForm";
+import ProfileContent from "./ProfileContent";
+import { motion } from "framer-motion";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const [animateKey, setAnimateKey] = useState(0);
+  const [deviceSelectionTrigger, setDeviceSelectionTrigger] =
+    useState<number>(0);
+
+  useEffect(() => {
+    if (deviceSelectionTrigger === 0) return;
+    setAnimateKey((prev) => prev + 1);
+  }, [deviceSelectionTrigger]);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -56,7 +63,7 @@ export default function DashboardPage() {
               <Breadcrumb>
                 <BreadcrumbList>
                   <BreadcrumbItem className="hidden md:block">
-                    <BreadcrumbLink href="#">Dashboard</BreadcrumbLink>
+                    <BreadcrumbLink>Profile Settings</BreadcrumbLink>
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
@@ -67,8 +74,21 @@ export default function DashboardPage() {
             <ThemeSwitch />
           </div>
         </header>
-
-     <DashboardContent />
+        <div className="flex flex-1 flex-col gap-4 w-full px-4 pt-0">
+          <motion.div
+            key={animateKey}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className=""
+          >
+            <div className="flex justify-center pl-4 flex-col">
+            <h2 className="text-2xl font-bold">Settings</h2>
+            <p className="text-muted-foreground text-md">Manage your profile and account settings</p>
+            </div>
+            <ProfileContent />
+          </motion.div>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

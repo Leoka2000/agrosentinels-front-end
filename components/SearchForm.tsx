@@ -41,7 +41,7 @@ export const SearchIcon = ({
 
 export default function SearchForm() {
   return (
-    <div className="w-full max-w-sm">
+    <div className=" w-2xs ">
       <Input
         type="search"
         placeholder="Search..."

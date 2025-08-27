@@ -1,66 +1,73 @@
 "use client";
 
-import { BadgeCheck, Bell, ChevronsUpDown } from "lucide-react";
+import * as React from "react";
+import { BadgeCheck, Bell, ChevronsUpDown, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@heroui/skeleton";
-import { useEffect, useState } from "react";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   useSidebar,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { LogoutButton } from "./LogoutButton";
 import { AppUser } from "@/types/AppUser";
-import { getToken } from "@/lib/auth";
+import { getToken, logout } from "@/lib/auth";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownMenu,
+  DropdownItem,
+  DropdownSection,
+} from "@heroui/dropdown";
 
 export function NavUser() {
   const { isMobile } = useSidebar();
   const router = useRouter();
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-  const [user, setUser] = useState<AppUser | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const [user, setUser] = React.useState<AppUser | null>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  const handleLogout = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+      logout();
+      router.push("/");
+      router.refresh();
+    } catch {
+      logout();
+      router.push("/");
+    }
+  };
+
+  React.useEffect(() => {
     const fetchUser = async () => {
       try {
         setLoading(true);
-
         const token = getToken();
         if (!token) throw new Error("No authentication token found");
 
         const response = await fetch(`${API_BASE_URL}/users/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
 
-        if (!response.ok) {
+        if (!response.ok)
           throw new Error(`Failed to fetch user: ${response.status}`);
-        }
 
         const userData = await response.json();
         setUser(userData);
       } catch (err) {
         console.error("Error fetching user:", err);
-        // redirect if fetching user failed
       } finally {
         setLoading(false);
       }
     };
-
     fetchUser();
   }, [router]);
 
@@ -75,9 +82,7 @@ export function NavUser() {
         <SidebarMenuItem>
           <SidebarMenuButton size="lg">
             <div className="max-w-[300px] w-full flex items-center gap-3">
-              <div>
-                <Skeleton className="flex rounded-full w-12 h-12" />
-              </div>
+              <Skeleton className="flex rounded-full w-12 h-12" />
               <div className="w-full flex flex-col gap-2">
                 <Skeleton className="h-3 w-3/5 rounded-lg" />
                 <Skeleton className="h-3 w-4/5 rounded-lg" />
@@ -92,72 +97,64 @@ export function NavUser() {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        <Dropdown
+          showArrow
+          placement={isMobile ? "bottom" : "right-start"}
+          classNames={{
+            base: "before:bg-default-200",
+            content:
+              "py-1 px-1 border border-default-200 bg-linear-to-br from-white to-default-200 dark:from-default-50 dark:to-black",
+          }}
+        >
+          <DropdownTrigger>
             <SidebarMenuButton
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarFallback className="rounded-lg">
-                  {getInitials(user?.username)}
-                </AvatarFallback>
+                <AvatarFallback>{getInitials(user.username)}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">
-                  {user?.username ?? "loading..."}
-                </span>
-                <span className="truncate text-xs">
-                  {user?.email ?? "loading..."}
-                </span>
+                <span className="truncate font-medium">{user.username}</span>
+                <span className="truncate text-xs">{user.email}</span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-            side={isMobile ? "bottom" : "right"}
-            align="end"
-            sideOffset={4}
-          >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+          </DropdownTrigger>
+
+          <DropdownMenu>
+            {/* User Info as non-interactive DropdownItem */}
+            <DropdownItem className="cursor-default">
+              <div className="flex items-center gap-2 px-2 py-1">
                 <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarFallback className="rounded-lg">
-                    {getInitials(user?.username)}
-                  </AvatarFallback>
+                  <AvatarFallback>{getInitials(user.username)}</AvatarFallback>
                 </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">
-                    {user?.username ?? "loading name"}
-                  </span>
-                  <span className="truncate text-xs">
-                    {user?.email ?? "loading email"}
-                  </span>
+                <div className="flex flex-col text-sm leading-tight">
+                  <span className="truncate font-medium">{user.username}</span>
+                  <span className="truncate text-xs">{user.email}</span>
                 </div>
               </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            </DropdownItem>
 
-            <DropdownMenuGroup>
-              <Link href="/account">
-                <DropdownMenuItem>
-                  <BadgeCheck className="mr-2 h-4 w-4" />
-                  Account
-                </DropdownMenuItem>
-              </Link>
-
-              <DropdownMenuItem>
-                <Bell className="mr-2 h-4 w-4" />
-                Notifications
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <LogoutButton />
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <DropdownSection>
+              <DropdownItem
+                className="hover:border-gray-500 hover:borer-2 "
+                startContent={<BadgeCheck className="mr-2 h-4 w-4" />}
+                key={""}
+                href="/settings"
+              >
+                Account
+              </DropdownItem>
+              <DropdownItem
+                onPress={handleLogout}
+                startContent={<LogOut className="mr-2 h-4 w-4" />}
+                key={""}
+              >
+                Log out
+              </DropdownItem>
+            </DropdownSection>
+          </DropdownMenu>
+        </Dropdown>
       </SidebarMenuItem>
     </SidebarMenu>
   );

@@ -11,6 +11,7 @@
   "dependencies": {
     "@heroui/alert": "^2.2.24",
     "@heroui/button": "2.2.24",
+    "@heroui/card": "^2.2.23",
     "@heroui/checkbox": "^2.3.24",
     "@heroui/code": "2.2.18",
     "@heroui/dropdown": "^2.3.24",
@@ -25,6 +26,7 @@
     "@heroui/snippet": "2.2.25",
     "@heroui/switch": "2.2.22",
     "@heroui/system": "2.4.20",
+    "@heroui/tabs": "^2.2.21",
     "@heroui/theme": "2.4.20",
     "@heroui/toast": "^2.0.14",
     "@radix-ui/react-avatar": "^1.1.10",

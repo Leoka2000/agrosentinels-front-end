@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronsUpDown, Plus, Trash2 } from "lucide-react";
+import { Bluetooth, ChevronsUpDown, Plus, Trash2 } from "lucide-react";
 
 import {
   SidebarMenu,
@@ -22,7 +22,10 @@ export function TeamSwitcher() {
   const { isMobile } = useSidebar();
   const [activeTeam, setActiveTeam] = React.useState({
     name: "Team Alpha",
-    logo: () => <div className="bg-blue-500 w-6 h-6 rounded-full" />,
+    logo: () =>  <div className="flex size-10 w-10 h-8 items-center justify-center rounded-md border text-neutral-700 dark:text-neutral-300  dark:bg-neutral-950 bg-neutral-100">
+                  
+                     <Bluetooth size={17}/>
+                  </div>,
     plan: "Pro",
   });
 
@@ -62,10 +65,11 @@ export function TeamSwitcher() {
             {/* Hard-coded Teams */}
             <DropdownSection title="Teams">
               <DropdownItem
-                 description="Change to device 1"
+                 description="Connect"
                 startContent={
-                  <div className="flex size-6 items-center justify-center rounded-md border bg-blue-500">
-                    <div className="size-3.5" />
+                <div className="flex size-10 w-10 h-8 items-center justify-center rounded-md border dark:bg-neutral-950 bg-neutral-100">
+                  
+                     <Bluetooth size={15}/>
                   </div>
                 }
                 shortcut="⌘1"
@@ -73,7 +77,10 @@ export function TeamSwitcher() {
                 onPress={() =>
                   setActiveTeam({
                     name: "Team Alpha",
-                    logo: () => <div className="bg-blue-500 w-6 h-6 rounded-full" />,
+                    logo: () =><div className="flex size-10 w-10 h-8 items-center justify-center rounded-md border dark:bg-neutral-950 bg-neutral-100">
+                  
+                     <Bluetooth size={17}/>
+                  </div>,
                     plan: "Pro",
                   })
                 }
@@ -82,17 +89,21 @@ export function TeamSwitcher() {
               </DropdownItem>
 
               <DropdownItem
-               description="Change to device 2"
+               description="Connect"
                 startContent={
-                  <div className="flex size-6 items-center justify-center rounded-md border bg-green-500">
-                    <div className="size-3.5" />
+                  <div className="flex size-10 w-10 h-8 items-center justify-center rounded-md border  dark:bg-neutral-950 bg-neutral-100">
+                  
+                     <Bluetooth size={17}/>
                   </div>
                 }
                 shortcut="⌘2"
                 onPress={() =>
                   setActiveTeam({
                     name: "Team Beta",
-                    logo: () => <div className="bg-green-500 w-6 h-6 rounded-full" />,
+                    logo: () => <div className="flex size-10 w-10 h-8 items-center justify-center rounded-md border dark:bg-neutral-950 bg-neutral-100">
+                  
+                     <Bluetooth size={17}/>
+                  </div>,
                     plan: "Starter",
                   })
                 }
