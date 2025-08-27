@@ -12,9 +12,9 @@ export default function RegisterPage() {
           height={124}
           className="mx-auto mb-4"
         />
-        <p className="text-2xl font-medium">Welcome Back</p>
-        <p className="text-small text-default-500">
-          Log in to your account to continue
+       
+        <p className="text-2xl text-default-500">
+          Register for an account to continue
         </p>
       </div>
       <RegisterForm />

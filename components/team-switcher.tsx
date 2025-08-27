@@ -1,45 +1,48 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { ChevronsUpDown, Plus } from "lucide-react"
+import * as React from "react";
+import { ChevronsUpDown, Plus, Trash2 } from "lucide-react";
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 
-export function TeamSwitcher({
-  teams,
-}: {
-  teams: {
-    name: string
-    logo: React.ElementType
-    plan: string
-  }[]
-}) {
-  const { isMobile } = useSidebar()
-  const [activeTeam, setActiveTeam] = React.useState(teams[0])
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownMenu,
+  DropdownItem,
+  DropdownSection,
+} from "@heroui/dropdown";
 
-  if (!activeTeam) {
-    return null
-  }
+export function TeamSwitcher() {
+  const { isMobile } = useSidebar();
+  const [activeTeam, setActiveTeam] = React.useState({
+    name: "Team Alpha",
+    logo: () => <div className="bg-blue-500 w-6 h-6 rounded-full" />,
+    plan: "Pro",
+  });
+
+  if (!activeTeam) return null;
 
   return (
     <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+      <SidebarMenuItem      >
+        
+        <Dropdown
+          showArrow
+       
+          placement={isMobile ? "bottom" : "right-start"}
+          classNames={{
+            base: "before:bg-default-200",
+            content:
+              "py-1 px-1 border border-default-200 bg-linear-to-br from-white to-default-200 dark:from-default-50 dark:to-black",
+          }}
+        >
+          <DropdownTrigger>
             <SidebarMenuButton
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
@@ -53,39 +56,78 @@ export function TeamSwitcher({
               </div>
               <ChevronsUpDown className="ml-auto" />
             </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-            align="start"
-            side={isMobile ? "bottom" : "right"}
-            sideOffset={4}
-          >
-            <DropdownMenuLabel className="text-muted-foreground text-xs">
-              Teams
-            </DropdownMenuLabel>
-            {teams.map((team, index) => (
-              <DropdownMenuItem
-                key={team.name}
-                onClick={() => setActiveTeam(team)}
-                className="gap-2 p-2"
+          </DropdownTrigger>
+
+          <DropdownMenu aria-label="Team Switcher" variant="faded">
+            {/* Hard-coded Teams */}
+            <DropdownSection title="Teams">
+              <DropdownItem
+                 description="Change to device 1"
+                startContent={
+                  <div className="flex size-6 items-center justify-center rounded-md border bg-blue-500">
+                    <div className="size-3.5" />
+                  </div>
+                }
+                shortcut="⌘1"
+         
+                onPress={() =>
+                  setActiveTeam({
+                    name: "Team Alpha",
+                    logo: () => <div className="bg-blue-500 w-6 h-6 rounded-full" />,
+                    plan: "Pro",
+                  })
+                }
               >
-                <div className="flex size-6 items-center justify-center rounded-md border">
-                  <team.logo className="size-3.5 shrink-0" />
+                Team Alpha
+              </DropdownItem>
+
+              <DropdownItem
+               description="Change to device 2"
+                startContent={
+                  <div className="flex size-6 items-center justify-center rounded-md border bg-green-500">
+                    <div className="size-3.5" />
+                  </div>
+                }
+                shortcut="⌘2"
+                onPress={() =>
+                  setActiveTeam({
+                    name: "Team Beta",
+                    logo: () => <div className="bg-green-500 w-6 h-6 rounded-full" />,
+                    plan: "Starter",
+                  })
+                }
+              >
+                Team Beta
+              </DropdownItem>
+            </DropdownSection>
+
+            {/* Add Team */}
+            <DropdownItem
+              startContent={
+                <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
+                  <Plus className="size-4" />
                 </div>
-                {team.name}
-                <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
-              <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                <Plus className="size-4" />
-              </div>
-              <div className="text-muted-foreground font-medium">Add team</div>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              }
+                  
+              className=" font-medium"
+              onPress={() => alert("Add new team")}
+            >
+              Add team
+            </DropdownItem>
+
+            {/* Danger Zone */}
+            <DropdownSection title="Danger Zone">
+              <DropdownItem
+                startContent={<Trash2 className="size-4 text-[#f31260] " />}
+                className="font-medium text-[#f31260] hover:text-[#f31260] dark:hover:text-[#f31260]"
+                onPress={() => alert(`⚠️ Deleting device: ${activeTeam.name}`)}
+              >
+                Delete Device
+              </DropdownItem>
+            </DropdownSection>
+          </DropdownMenu>
+        </Dropdown>
       </SidebarMenuItem>
     </SidebarMenu>
-  )
+  );
 }

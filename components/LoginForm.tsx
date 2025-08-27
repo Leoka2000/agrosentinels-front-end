@@ -12,7 +12,7 @@ import { Form } from "@heroui/form";
 import { addToast } from "@heroui/toast";
 import Image from "next/image";
 import { setToken } from "@/lib/auth";
-import { Eye, EyeClosed } from "lucide-react";
+import { Eye, EyeClosed, Link as LinkIcon } from "lucide-react";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -99,11 +99,9 @@ export default function LoginForm() {
             />
 
             <div className="flex w-full items-center justify-between px-1 py-2">
-              <Checkbox name="remember" size="sm">
-                Remember me
-              </Checkbox>
-              <Link className="text-default-500" href="#" size="sm">
-                Forgot password?
+           
+              <Link className="text-blue-600 underline underline-offset-4 dark:text-blue-500 " href="#" size="sm">
+                <p className="mr-1">Forgot password?</p> <LinkIcon size={13}/>
               </Link>
             </div>
 
