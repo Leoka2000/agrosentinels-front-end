@@ -11,6 +11,7 @@
   "dependencies": {
     "@heroui/alert": "^2.2.24",
     "@heroui/button": "2.2.24",
+    "@heroui/calendar": "^2.2.24",
     "@heroui/card": "^2.2.23",
     "@heroui/checkbox": "^2.3.24",
     "@heroui/code": "2.2.18",
@@ -48,6 +49,7 @@
     "next-themes": "0.4.6",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "recharts": "^2.15.4",
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {

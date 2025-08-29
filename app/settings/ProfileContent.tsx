@@ -249,9 +249,9 @@ export default function ProfileContent() {
   return (
     <div className="flex flex-col w-full p-4">
       <div className="flex w-full flex-col">
-        <Tabs className="" aria-label="Account settings" isVertical={true}>
+        <Tabs color="secondary" variant={"bordered"} className="" aria-label="Account settings" isVertical={true}>
                   
-          <Tab key="account" title="Account Details">
+          <Tab  key="account" title="Account Details">
             <Card className="">
               <CardBody className=" md:w-[30rem] w-full p-6 max-3xl">
                 <Form

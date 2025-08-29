@@ -64,6 +64,9 @@ export function NavUser() {
         setUser(userData);
       } catch (err) {
         console.error("Error fetching user:", err);
+       
+        router.push("/login");
+      
       } finally {
         setLoading(false);
       }

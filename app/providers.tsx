@@ -7,6 +7,7 @@ import { HeroUIProvider } from "@heroui/system";
 import { useRouter } from "next/navigation";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { ToastProvider } from "@heroui/toast";
+import { BluetoothSensorProvider } from "../context/useBluetoothSensor";
 
 export interface ProvidersProps {
   children: React.ReactNode;
@@ -26,8 +27,10 @@ export function Providers({ children, themeProps }: ProvidersProps) {
 
   return (
     <HeroUIProvider navigate={router.push}>
-      <ToastProvider placement="top-right" toastOffset={120} />
-      <NextThemesProvider {...themeProps}>{children}</NextThemesProvider>
+      <BluetoothSensorProvider>
+        <ToastProvider placement="top-right" toastOffset={120} />
+        <NextThemesProvider {...themeProps}>{children}</NextThemesProvider>
+      </BluetoothSensorProvider>
     </HeroUIProvider>
   );
 }
