@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 import { NavUser } from "@/components/nav-user";
-import { TeamSwitcher } from "@/components/team-switcher";
+import { DeviceSwitcher } from "@/components/team-switcher";
 import {
   Sidebar,
   SidebarContent,
@@ -159,7 +159,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <TeamSwitcher teams={data.teams} />
+        <DeviceSwitcher />
       </SidebarHeader>
       <SidebarContent>
         <NavMain />
