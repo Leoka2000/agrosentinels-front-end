@@ -88,28 +88,7 @@ export function TeamSwitcher() {
                 Team Alpha
               </DropdownItem>
 
-              <DropdownItem
-               description="Connect"
-                startContent={
-                  <div className="flex size-10 w-10 h-8 items-center justify-center rounded-md border  dark:bg-neutral-950 bg-neutral-100">
-                  
-                     <Bluetooth size={17}/>
-                  </div>
-                }
-                shortcut="⌘2"
-                onPress={() =>
-                  setActiveTeam({
-                    name: "Team Beta",
-                    logo: () => <div className="flex size-10 w-10 h-8 items-center justify-center rounded-md border dark:bg-neutral-950 bg-neutral-100">
-                  
-                     <Bluetooth size={17}/>
-                  </div>,
-                    plan: "Starter",
-                  })
-                }
-              >
-                Team Beta
-              </DropdownItem>
+            
             </DropdownSection>
 
             {/* Add Team */}
