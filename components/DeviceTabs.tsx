@@ -37,7 +37,7 @@ const DeviceTabs: React.FC = () => {
   const [activeDeviceId, setActiveDeviceId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSelecting, setIsSelecting] = useState(false);
-  const token = getToken();
+
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
   const [animateKey, setAnimateKey] = useState(0);
   const [deviceSelectionTrigger, setDeviceSelectionTrigger] =
@@ -48,6 +48,7 @@ const DeviceTabs: React.FC = () => {
     setAnimateKey((prev) => prev + 1);
   }, [deviceSelectionTrigger]);
 
+  const token = getToken();
 
   const fetchDevices = async () => {
     try {
@@ -73,7 +74,6 @@ const DeviceTabs: React.FC = () => {
       setIsLoading(false);
     }
   };
-
 
   const fetchActiveDevice = async () => {
     try {
@@ -136,7 +136,6 @@ const DeviceTabs: React.FC = () => {
       <Tabs
         aria-label="Device Tabs"
         radius="lg"
-    
         selectedKey={activeDeviceId}
         onSelectionChange={(key) => handleDeviceSelect(key as string)}
         color="default"
