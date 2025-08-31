@@ -23,6 +23,7 @@
     "@heroui/listbox": "2.3.23",
     "@heroui/modal": "^2.2.21",
     "@heroui/navbar": "2.2.22",
+    "@heroui/pagination": "^2.2.23",
     "@heroui/skeleton": "^2.2.15",
     "@heroui/snippet": "2.2.25",
     "@heroui/switch": "2.2.22",
