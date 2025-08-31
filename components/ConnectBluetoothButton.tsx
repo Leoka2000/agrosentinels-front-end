@@ -5,15 +5,7 @@ import { Bluetooth, BluetoothOff, Loader2 } from "lucide-react";
 import { Button } from "@heroui/button";
 import { useBluetoothSensor } from "../context/useBluetoothSensor";
 
-interface BluetoothConnectButtonProps {
-  setTimeCharUuid: string;
-  sleepControlCharUuid: string;
-}
-
-const BluetoothConnectButton: React.FC<BluetoothConnectButtonProps> = ({
-  setTimeCharUuid,
-  sleepControlCharUuid,
-}) => {
+const BluetoothConnectButton: React.FC = () => {
   const {
     activeDevice,
     scanForDevices,
@@ -22,6 +14,7 @@ const BluetoothConnectButton: React.FC<BluetoothConnectButtonProps> = ({
     writeSetTime,
     writeSleepOn,
     writeSleepOff,
+  startStreaming
   } = useBluetoothSensor();
 
   const [isScanning, setIsScanning] = useState(false);
@@ -30,6 +23,35 @@ const BluetoothConnectButton: React.FC<BluetoothConnectButtonProps> = ({
   useEffect(() => {
     console.log("🔹 Active device in context:", activeDevice);
   }, [activeDevice]);
+
+  useEffect(() => {
+    if (
+      localConnected &&
+      activeDevice?.sleepControlCharUuid &&
+      activeDevice?.setTimeCharUuid
+    ) {
+      const timer1 = setTimeout(async () => {
+        try {
+          await writeSleepOn(activeDevice.sleepControlCharUuid);
+
+          // wait 1s after Sleep ON, then send timestamp
+          const timer2 = setTimeout(async () => {
+            try {
+              await writeSetTime(activeDevice.setTimeCharUuid);
+            } catch (err) {
+              console.error("❌ Failed to send timestamp:", err);
+            }
+          }, 1000);
+
+          return () => clearTimeout(timer2);
+        } catch (err) {
+          console.error("❌ Failed to send Sleep ON:", err);
+        }
+      }, 1000);
+
+      return () => clearTimeout(timer1);
+    }
+  }, [localConnected, activeDevice, writeSleepOn, writeSetTime]);
 
   const handleScan = async () => {
     if (!activeDevice?.serviceUuid) {
@@ -50,9 +72,13 @@ const BluetoothConnectButton: React.FC<BluetoothConnectButtonProps> = ({
           onPress={handleScan}
           color="success"
           variant="shadow"
-          isDisabled={isScanning}
+          isDisabled={isScanning || !activeDevice?.serviceUuid}
           startContent={
-            isScanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bluetooth className="h-4 w-4" />
+            isScanning ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Bluetooth className="h-4 w-4" />
+            )
           }
         >
           {isScanning ? "Scanning..." : "Scan for Devices"}
@@ -68,16 +94,30 @@ const BluetoothConnectButton: React.FC<BluetoothConnectButtonProps> = ({
         </Button>
       )}
 
-      {localConnected && (
+      {localConnected && activeDevice && (
         <div className="flex flex-col gap-2 w-full">
-          <Button onPress={() => writeSetTime(setTimeCharUuid)} color="primary">
+          <Button
+            onPress={() => writeSetTime(activeDevice.setTimeCharUuid)}
+            color="primary"
+            isDisabled={!activeDevice.setTimeCharUuid}
+          >
             Send Current Timestamp
           </Button>
-          <Button onPress={() => writeSleepOn(sleepControlCharUuid)} color="secondary">
-            Sleep ON
-          </Button>
-          <Button onPress={() => writeSleepOff(sleepControlCharUuid)} color="secondary">
+
+          <Button
+            onPress={() => writeSleepOff(activeDevice.sleepControlCharUuid)}
+            color="secondary"
+            isDisabled={!activeDevice.sleepControlCharUuid}
+          >
             Sleep OFF
+          </Button>
+
+          <Button
+            onPress={() => startStreaming(activeDevice.measurementCharUuid)}
+            color="success"
+            isDisabled={!activeDevice.measurementCharUuid}
+          >
+            Start Streaming
           </Button>
         </div>
       )}

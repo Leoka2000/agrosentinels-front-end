@@ -329,9 +329,7 @@ const DashboardContent: React.FC = () => {
               <CardBody>
                 <VoltageProvider />
               </CardBody>
-              <CardBody>
-                <AccelerometerProvider />
-              </CardBody>
+             
             </Card>
           )}
           <div className="flex justify-center mt-6">

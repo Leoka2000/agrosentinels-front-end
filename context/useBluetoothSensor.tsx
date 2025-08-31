@@ -1,13 +1,6 @@
 "use client";
 
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import { getToken } from "../lib/auth";
 import { addToast } from "@heroui/toast";
 
@@ -17,6 +10,7 @@ interface ActiveDevice {
   serviceUuid: string;
   readNotifyCharacteristicUuid: string;
   writeCharacteristicUuid: string;
+  measurementCharUuid: string;
   userId: number;
 }
 
@@ -37,27 +31,24 @@ interface BluetoothSensorContextValue {
   writeSetTime: (setTimeCharUuid: string) => Promise<void>;
   writeSleepOn: (sleepControlCharUuid: string) => Promise<void>;
   writeSleepOff: (sleepControlCharUuid: string) => Promise<void>;
+  startStreaming: (measurementCharUuid: string) => Promise<void>;
 }
 
-const BluetoothSensorContext =
-  createContext<BluetoothSensorContextValue | null>(null);
+const BluetoothSensorContext = createContext<BluetoothSensorContextValue | null>(null);
 
 interface BluetoothSensorProviderProps {
   children: ReactNode;
   deviceSelectionTrigger?: number;
 }
 
-export const BluetoothSensorProvider = ({
-  children,
-  deviceSelectionTrigger,
-}: BluetoothSensorProviderProps) => {
+export const BluetoothSensorProvider = ({ children, deviceSelectionTrigger }: BluetoothSensorProviderProps) => {
   const [activeDevice, setActiveDevice] = useState<ActiveDevice | null>(null);
   const [localConnected, setLocalConnected] = useState(false);
   const [currentDevice, setCurrentDevice] = useState<BluetoothDevice | null>(null);
   const [characteristics, setCharacteristics] = useState<Record<string, BluetoothRemoteGATTCharacteristic>>({});
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-  // ---------------- Existing fetchActiveDevice logic ----------------
+  // ---------------- Fetch active device ----------------
   const fetchActiveDevice = useCallback(async () => {
     try {
       const token = getToken();
@@ -93,9 +84,8 @@ export const BluetoothSensorProvider = ({
       fetchActiveDevice();
     }
   }, [deviceSelectionTrigger, fetchActiveDevice]);
-  // ------------------------------------------------------------------
 
-  // ---------------- Bluetooth Logic ----------------
+  // ---------------- Bluetooth logic ----------------
   const discoverServicesAndCharacteristics = async (device: BluetoothDevice, serviceUuid: string) => {
     try {
       if (!device.gatt) throw new Error("GATT server not available");
@@ -119,7 +109,6 @@ export const BluetoothSensorProvider = ({
         optionalServices: [serviceUuid],
       });
       setCurrentDevice(device);
-
       if (device.gatt) {
         await device.gatt.connect();
         setLocalConnected(true);
@@ -142,11 +131,14 @@ export const BluetoothSensorProvider = ({
   const writeSetTime = async (setTimeCharUuid: string) => {
     const char = characteristics[setTimeCharUuid];
     if (!char) return addToast({ title: "Set Time characteristic not found", color: "warning" });
+
     const timestamp = Math.floor(Date.now() / 1000);
     const buffer = new ArrayBuffer(4);
     new DataView(buffer).setUint32(0, timestamp, true);
+
     await char.writeValue(buffer);
     addToast({ title: "Timestamp sent", color: "success" });
+    console.log("⏰ Timestamp sent:", timestamp);
   };
 
   const writeSleepOn = async (sleepControlCharUuid: string) => {
@@ -162,7 +154,66 @@ export const BluetoothSensorProvider = ({
     await char.writeValue(Uint8Array.of(0x46));
     addToast({ title: "Sleep OFF sent", color: "success" });
   };
-  // ---------------------------------------------------
+
+  // ---------------- Start streaming ----------------
+  const startStreaming = async (measurementCharUuid: string) => {
+    const char = characteristics[measurementCharUuid];
+    if (!char) return addToast({ title: "Measurement characteristic not found", color: "warning" });
+
+    try {
+      await char.startNotifications();
+
+      char.addEventListener("characteristicvaluechanged", async (event: any) => {
+        try {
+          const value: DataView = event.target.value;
+          let hexString = "";
+          for (let i = 0; i < value.byteLength; i++) {
+            hexString += value.getUint8(i).toString(16).padStart(2, "0");
+          }
+
+          console.log("📡 Measurement received (hex):", hexString);
+
+          if (!activeDevice) return;
+
+          const numericDeviceId = activeDevice.deviceId;
+
+          // Parse MCU timestamp (first 4 bytes, little-endian)
+          const tsHex = hexString.slice(0, 8);
+          const unixTimestamp = parseInt(tsHex.match(/../g)!.reverse().join(""), 16);
+
+          // Parse battery voltage (bytes 26–27 = chars 52–56)
+          const batteryHex = hexString.slice(52, 56);
+          const batteryRaw = parseInt(batteryHex.match(/../g)!.reverse().join(""), 16);
+          const batteryVoltage = batteryRaw / 1000;
+
+          console.log(`⏰ Parsed timestamp: ${unixTimestamp}`);
+          console.log(`🔋 Battery voltage: ${batteryVoltage} V`);
+
+          // Send to backend
+          const token = getToken();
+          await fetch(`${API_BASE_URL}/api/voltage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              deviceId: numericDeviceId,
+              voltage: batteryVoltage,
+              timestamp: unixTimestamp,
+            }),
+          }).then((res) => {
+            if (!res.ok) console.error(`Voltage POST failed: ${res.status} ${res.statusText}`);
+            else console.log(`✅ Voltage data sent successfully for device ${numericDeviceId}`);
+          });
+        } catch (err) {
+          console.error("Error processing measurement:", err);
+        }
+      });
+
+      addToast({ title: "Streaming started", color: "success" });
+    } catch (err) {
+      console.error("❌ Failed to start streaming:", err);
+      addToast({ title: "Failed to start streaming", color: "danger" });
+    }
+  };
 
   return (
     <BluetoothSensorContext.Provider
@@ -177,6 +228,7 @@ export const BluetoothSensorProvider = ({
         writeSetTime,
         writeSleepOn,
         writeSleepOff,
+        startStreaming,
       }}
     >
       {children}
@@ -186,7 +238,6 @@ export const BluetoothSensorProvider = ({
 
 export const useBluetoothSensor = () => {
   const context = useContext(BluetoothSensorContext);
-  if (!context)
-    throw new Error("useBluetoothSensor must be used within BluetoothSensorProvider");
+  if (!context) throw new Error("useBluetoothSensor must be used within BluetoothSensorProvider");
   return context;
 };
