@@ -26,8 +26,6 @@ interface ActiveDevice {
   writeCharacteristicUuid: string;
   measurementCharUuid: string;
   userId: number;
-  setTimeCharUuid: string; 
-  sleepControlCharUuid: string;
 }
 
 interface BluetoothDevice {
@@ -54,13 +52,15 @@ interface BluetoothSensorContextValue {
 const BluetoothSensorContext =
   createContext<BluetoothSensorContextValue | null>(null);
 
+interface BluetoothSensorProviderProps {
+  children: ReactNode;
+  deviceSelectionTrigger?: number;
+}
+
 export const BluetoothSensorProvider = ({
   children,
   deviceSelectionTrigger,
-}: {
-  children: ReactNode;
-  deviceSelectionTrigger?: number;
-}) => {
+}: BluetoothSensorProviderProps) => {
   const [activeDevice, setActiveDevice] = useState<ActiveDevice | null>(null);
   const [localConnected, setLocalConnected] = useState(false);
   const [currentDevice, setCurrentDevice] = useState<BluetoothDevice | null>(
@@ -72,7 +72,7 @@ export const BluetoothSensorProvider = ({
   const streamingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-  // ---------------- fetch active device ----------------
+  // ---------------- fetch active device logic ----------------
   const fetchActiveDevice = useCallback(async () => {
     try {
       const token = getToken();
@@ -111,7 +111,7 @@ export const BluetoothSensorProvider = ({
     }
   }, [deviceSelectionTrigger, fetchActiveDevice]);
 
-  // ---------------- bluetooth logic ----------------
+  // ---------------- Bluetooth logic ----------------
   const discoverServicesAndCharacteristics = async (
     device: BluetoothDevice,
     serviceUuid: string
@@ -152,26 +152,25 @@ export const BluetoothSensorProvider = ({
     }
   };
 
-  // ---------------- cleanup helpers ----------------
+  // ---------------- Stop streaming (cleanup) ----------------
   const stopStreaming = () => {
     if (streamingIntervalRef.current) {
       clearInterval(streamingIntervalRef.current);
       streamingIntervalRef.current = null;
-      console.log("🛑 Streaming stopped and interval cleared");
+      console.log("Streaming stopped and interval cleared");
       addToast({ title: "Streaming stopped", color: "warning" });
     }
   };
 
+  // ---------------- Disconnect cleanup ----------------
   const disconnectBluetooth = () => {
-    stopStreaming();
+    stopStreaming(); // cleanup interval on disconnect
     if (currentDevice?.gatt?.connected) currentDevice.gatt.disconnect();
     setLocalConnected(false);
     setCurrentDevice(null);
     setCharacteristics({});
     addToast({ title: "Disconnected", color: "warning" });
   };
-
-  // ---------------- writers ----------------
   const writeSetTime = async (setTimeCharUuid: string): Promise<void> => {
     const char = characteristics[setTimeCharUuid];
     if (!char) {
@@ -181,9 +180,11 @@ export const BluetoothSensorProvider = ({
       });
       return;
     }
+
     const timestamp = Math.floor(Date.now() / 1000);
     const buffer = new ArrayBuffer(4);
     new DataView(buffer).setUint32(0, timestamp, true);
+
     await char.writeValue(buffer);
     addToast({ title: "Timestamp sent", color: "success" });
     console.log("⏰ Timestamp sent:", timestamp);
@@ -208,8 +209,7 @@ export const BluetoothSensorProvider = ({
         color: "warning",
       });
     await char.writeValue(Uint8Array.of(0x46));
-    stopStreaming(); // 🛑 stop the 30s cycle too
-    addToast({ title: "Sleep OFF sent + streamiyg stopped", color: "success" });
+    addToast({ title: "Sleep OFF sent", color: "success" });
   };
 
   // ---------------- Start streaming ----------------
@@ -222,43 +222,217 @@ export const BluetoothSensorProvider = ({
       });
 
     try {
-      stopStreaming(); // ensure fresh start
+      // Stop any existing interval before starting a new one
+      if (streamingIntervalRef.current) {
+        clearInterval(streamingIntervalRef.current);
+        streamingIntervalRef.current = null;
+      }
 
       await char.startNotifications();
-      char.addEventListener("characteristicvaluechanged", (event: any) => {
+
+      char.addEventListener(
+        "characteristicvaluechanged",
+        async (event: any) => {
+          try {
+            const value: DataView = event.target.value;
+            let hexString = "";
+            for (let i = 0; i < value.byteLength; i++) {
+              hexString += value.getUint8(i).toString(16).padStart(2, "0");
+            }
+
+            console.log("📡 Measurement received (hex):", hexString);
+
+            if (!activeDevice) return;
+
+            const numericDeviceId = activeDevice.deviceId;
+
+            const unixTimestamp = parseTimestampHex(hexString);
+            const batteryVoltage = parseBatteryVoltageHex(hexString);
+            const temperature = parseTemperatureHex(hexString);
+            const accel = parseAccelerometerHex(hexString);
+
+            const token = getToken();
+
+            // voltage
+            if (!isNaN(batteryVoltage)) {
+              await fetch(`${API_BASE_URL}/api/voltage`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  deviceId: numericDeviceId,
+                  voltage: batteryVoltage,
+                  timestamp: unixTimestamp,
+                }),
+              });
+            }
+
+            // temperature
+            if (!isNaN(temperature)) {
+              await fetch(`${API_BASE_URL}/api/temperature`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  deviceId: numericDeviceId,
+                  temperature,
+                  timestamp: unixTimestamp,
+                }),
+              });
+            }
+
+            // accelerometer
+            if (!isNaN(accel.x) && !isNaN(accel.y) && !isNaN(accel.z)) {
+              await fetch(`${API_BASE_URL}/api/accelerometer`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  deviceId: numericDeviceId,
+                  x: accel.x,
+                  y: accel.y,
+                  z: accel.z,
+                  timestamp: unixTimestamp,
+                }),
+              });
+            }
+          } catch (err) {
+            console.error("Error processing measurement:", err);
+          }
+        }
+      );
+
+      // periodic write helper
+      const sendWrite = async () => {
         try {
-          const value: DataView = event.target.value;
+          const buffer = new Uint8Array([0x01]); // adjust payload as needed
+          await char.writeValue(buffer);
+          console.log("✍️ Periodic write sent at", new Date().toISOString());
+        } catch (err) {
+          console.error("❌ Failed to send periodic write:", err);
+        }
+      };
+
+      // first write immediately
+      await sendWrite();
+
+      // schedule every 30 seconds
+      streamingIntervalRef.current = setInterval(sendWrite, 30_000);
+
+      addToast({ title: "Streaming started", color: "success" });
+    } catch (err) {
+      console.error("❌ Failed to start streaming:", err);
+      addToast({ title: "Failed to start streaming", color: "danger" });
+    }
+  };
+  // ---------------- Get logs ----------------
+  const getHistoricalLogs = async (logReadCharUuid: string) => {
+    const char = characteristics[logReadCharUuid];
+    if (!char)
+      return addToast({
+        title: "Log characteristic not found",
+        color: "warning",
+      });
+
+    try {
+      const timestamp = Math.floor(Date.now() / 1000);
+      const buffer = new ArrayBuffer(4);
+      new DataView(buffer).setUint32(0, timestamp, true);
+      await char.writeValue(buffer);
+      console.log("📝 Sent timestamp to log char:", timestamp);
+
+      setTimeout(async () => {
+        try {
+          const value = await char.readValue();
           let hexString = "";
           for (let i = 0; i < value.byteLength; i++) {
             hexString += value.getUint8(i).toString(16).padStart(2, "0");
           }
-          console.log("📡 Measurement received (hex):", hexString);
-          // ... keep your parsing + API post logic here ...
+          console.log("📜 Log response (hex):", hexString);
+
+          setTimeout(async () => {
+            if (activeDevice?.setTimeCharUuid) {
+              try {
+                await writeSetTime(activeDevice.setTimeCharUuid);
+                console.log("⏰ writeSetTime called after 2s of reading logs");
+
+                if (!activeDevice) return;
+                const numericDeviceId = activeDevice.deviceId;
+                const unixTimestamp = parseTimestampHex(hexString);
+                const batteryVoltage = parseBatteryVoltageHex(hexString);
+                const temperature = parseTemperatureHex(hexString);
+                const accel = parseAccelerometerHex(hexString); // NEW
+                const token = getToken();
+
+                // Send voltage
+                if (!isNaN(batteryVoltage)) {
+                  await fetch(`${API_BASE_URL}/api/voltage`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      deviceId: numericDeviceId,
+                      voltage: batteryVoltage,
+                      timestamp: unixTimestamp,
+                    }),
+                  });
+                }
+
+                // Send temperature
+                if (!isNaN(temperature)) {
+                  await fetch(`${API_BASE_URL}/api/temperature`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      deviceId: numericDeviceId,
+                      temperature,
+                      timestamp: unixTimestamp,
+                    }),
+                  });
+                }
+
+                // Send accelerometer
+                if (!isNaN(accel.x) && !isNaN(accel.y) && !isNaN(accel.z)) {
+                  await fetch(`${API_BASE_URL}/api/accelerometer`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      deviceId: numericDeviceId,
+                      x: accel.x,
+                      y: accel.y,
+                      z: accel.z,
+                      timestamp: unixTimestamp,
+                    }),
+                  });
+                }
+              } catch (err) {
+                console.error(" Failed to call writeSetTime:", err);
+              }
+            }
+          }, 2000);
         } catch (err) {
-          console.error("Error processing measurement:", err);
+          console.error(" Failed to read logs:", err);
         }
-      });
+      }, 1000);
 
-      // set up periodic writeSetTime every 30s
-      if (activeDevice?.setTimeCharUuid) {
-        const runSetTime = async () => {
-          try {
-            await writeSetTime(activeDevice.setTimeCharUuid);
-          } catch (err) {
-            console.error("❌ Failed to run periodic writeSetTime:", err);
-          }
-        };
-        // first run immediately
-        await runSetTime();
-        streamingIntervalRef.current = setInterval(runSetTime, 30_000);
-      } else {
-        console.warn("⚠️ No setTimeCharUuid in activeDevice");
-      }
-
-      addToast({ title: "Streaming started", color: "success" });
+      addToast({ title: "Log capture started", color: "success" });
     } catch (err) {
-      console.error("failed to start streaming:", err);
-      addToast({ title: "failed to start streaming", color: "danger" });
+      console.error(" Failed to start log capture:", err);
+      addToast({ title: "Failed to start log capture", color: "danger" });
     }
   };
 
@@ -276,7 +450,7 @@ export const BluetoothSensorProvider = ({
         writeSleepOn,
         writeSleepOff,
         startStreaming,
-        getHistoricalLogs: async () => {}, // trimmed for clarity
+        getHistoricalLogs,
       }}
     >
       {children}
@@ -285,10 +459,10 @@ export const BluetoothSensorProvider = ({
 };
 
 export const useBluetoothSensor = () => {
-  const ctx = useContext(BluetoothSensorContext);
-  if (!ctx)
+  const context = useContext(BluetoothSensorContext);
+  if (!context)
     throw new Error(
       "useBluetoothSensor must be used within BluetoothSensorProvider"
     );
-  return ctx;
+  return context;
 };
