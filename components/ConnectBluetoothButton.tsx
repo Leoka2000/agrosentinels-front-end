@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Bluetooth, BluetoothOff, Loader2 } from "lucide-react";
 import { Button } from "@heroui/button";
 import { useBluetoothSensor } from "../context/useBluetoothSensor";
-
+import { Spinner } from "@heroui/spinner";
 const BluetoothConnectButton: React.FC = () => {
   const {
     activeDevice,
@@ -14,7 +14,8 @@ const BluetoothConnectButton: React.FC = () => {
     writeSetTime,
     writeSleepOn,
     writeSleepOff,
-  startStreaming
+    startStreaming,
+     getLogs,
   } = useBluetoothSensor();
 
   const [isScanning, setIsScanning] = useState(false);
@@ -33,17 +34,6 @@ const BluetoothConnectButton: React.FC = () => {
       const timer1 = setTimeout(async () => {
         try {
           await writeSleepOn(activeDevice.sleepControlCharUuid);
-
-          // wait 1s after Sleep ON, then send timestamp
-          const timer2 = setTimeout(async () => {
-            try {
-              await writeSetTime(activeDevice.setTimeCharUuid);
-            } catch (err) {
-              console.error("❌ Failed to send timestamp:", err);
-            }
-          }, 1000);
-
-          return () => clearTimeout(timer2);
         } catch (err) {
           console.error("❌ Failed to send Sleep ON:", err);
         }
@@ -75,7 +65,7 @@ const BluetoothConnectButton: React.FC = () => {
           isDisabled={isScanning || !activeDevice?.serviceUuid}
           startContent={
             isScanning ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Spinner size="sm" />
             ) : (
               <Bluetooth className="h-4 w-4" />
             )
@@ -119,6 +109,12 @@ const BluetoothConnectButton: React.FC = () => {
           >
             Start Streaming
           </Button>
+           <Button
+      onPress={() => getLogs(activeDevice.logReadCharUuid)}
+      color="warning"
+    >
+      Start Capturing Logs
+    </Button>
         </div>
       )}
     </div>

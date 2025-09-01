@@ -70,7 +70,7 @@ const DashboardContent: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [localConnected, setLocalConnected] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
-  const { connectBluetooth, disconnectBluetooth } = useBluetoothSensor();
+
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
   const token = getToken();
