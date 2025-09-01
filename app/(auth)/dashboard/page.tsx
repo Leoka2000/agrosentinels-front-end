@@ -63,7 +63,7 @@ export default function DashboardPage() {
 
           <div className="flex flex-col p-6 mt-5 gap-6">
             <h1 className="text-muted-foreground text-2xl">Loading...</h1>
-            <Card className="w-full  h-96">
+            <Card className="w-full mt-12 h-96">
               <CardBody className="flex flex-col  gap-2 p-4">
                 <Skeleton className="rounded-lg dark:bg-neutral-900 shadow-md bg-neutral-100">
                   <div className="h-28 rounded-lg " />
