@@ -25,6 +25,7 @@ interface ActiveDevice {
   readNotifyCharacteristicUuid: string;
   writeCharacteristicUuid: string;
   measurementCharUuid: string;
+  setTimeCharUuid: string;
   userId: number;
 }
 
@@ -152,7 +153,7 @@ export const BluetoothSensorProvider = ({
     }
   };
 
-  // ---------------- Stop streaming (cleanup) ----------------
+  // ---------------- stop streaming (cleanup) ----------------
   const stopStreaming = () => {
     if (streamingIntervalRef.current) {
       clearInterval(streamingIntervalRef.current);
@@ -162,7 +163,7 @@ export const BluetoothSensorProvider = ({
     }
   };
 
-  // ---------------- Disconnect cleanup ----------------
+  // ---------------- disconnect cleanup ----------------
   const disconnectBluetooth = () => {
     stopStreaming(); // cleanup interval on disconnect
     if (currentDevice?.gatt?.connected) currentDevice.gatt.disconnect();
@@ -171,6 +172,7 @@ export const BluetoothSensorProvider = ({
     setCharacteristics({});
     addToast({ title: "Disconnected", color: "warning" });
   };
+
   const writeSetTime = async (setTimeCharUuid: string): Promise<void> => {
     const char = characteristics[setTimeCharUuid];
     if (!char) {
@@ -180,10 +182,14 @@ export const BluetoothSensorProvider = ({
       });
       return;
     }
+    // get current Unix timestamp (seconds since 1970)
     const timestamp = Math.floor(Date.now() / 1000);
+    // create a 4-byte buffer
     const buffer = new ArrayBuffer(4);
+    // Write timestamp to buffer in Little-Endian format (true)
     new DataView(buffer).setUint32(0, timestamp, true);
 
+    // write the buffer to the devices Set Time characteristic
     await char.writeValue(buffer);
     addToast({ title: "Timestamp sent", color: "success" });
     console.log("⏰ Timestamp sent:", timestamp);
@@ -254,7 +260,7 @@ export const BluetoothSensorProvider = ({
             const accel = parseAccelerometerHex(hexString);
             const token = getToken();
 
-            // Send voltage
+            // send voltage
             if (!isNaN(batteryVoltage)) {
               await fetch(`${API_BASE_URL}/api/voltage`, {
                 method: "POST",
@@ -270,7 +276,7 @@ export const BluetoothSensorProvider = ({
               });
             }
 
-            // Send temperature
+            // send temperature
             if (!isNaN(temperature)) {
               await fetch(`${API_BASE_URL}/api/temperature`, {
                 method: "POST",
@@ -286,7 +292,7 @@ export const BluetoothSensorProvider = ({
               });
             }
 
-            // Send accelerometer
+            // send accelerometer
             if (!isNaN(accel.x) && !isNaN(accel.y) && !isNaN(accel.z)) {
               await fetch(`${API_BASE_URL}/api/accelerometer`, {
                 method: "POST",
@@ -309,7 +315,7 @@ export const BluetoothSensorProvider = ({
         }
       );
 
-      // 2️⃣ Send timestamp to setTimeChar after 2 seconds
+      // send timestamp to setTimeChar after 2 seconds
       setTimeout(async () => {
         try {
           const timestamp = Math.floor(Date.now() / 1000);
@@ -331,7 +337,7 @@ export const BluetoothSensorProvider = ({
     }
   };
 
-  // ---------------- Get logs ----------------
+  // ---------------- get logs ----------------
   const getHistoricalLogs = async (logReadCharUuid: string) => {
     const char = characteristics[logReadCharUuid];
     if (!char)
@@ -370,7 +376,7 @@ export const BluetoothSensorProvider = ({
                 const accel = parseAccelerometerHex(hexString);
                 const token = getToken();
 
-                // Send voltage
+                // send voltage
                 if (!isNaN(batteryVoltage)) {
                   await fetch(`${API_BASE_URL}/api/voltage`, {
                     method: "POST",
@@ -386,7 +392,7 @@ export const BluetoothSensorProvider = ({
                   });
                 }
 
-                // Send temperature
+                // send temperature
                 if (!isNaN(temperature)) {
                   await fetch(`${API_BASE_URL}/api/temperature`, {
                     method: "POST",
@@ -402,7 +408,7 @@ export const BluetoothSensorProvider = ({
                   });
                 }
 
-                // Send accelerometer
+                // send accelerometer
                 if (!isNaN(accel.x) && !isNaN(accel.y) && !isNaN(accel.z)) {
                   await fetch(`${API_BASE_URL}/api/accelerometer`, {
                     method: "POST",
