@@ -111,7 +111,7 @@ export const BluetoothSensorProvider = ({
     }
   }, [deviceSelectionTrigger, fetchActiveDevice]);
 
-  // ---------------- Bluetooth logic ----------------
+  // ---------------- bluetooth logic ----------------
   const discoverServicesAndCharacteristics = async (
     device: BluetoothDevice,
     serviceUuid: string
@@ -180,7 +180,6 @@ export const BluetoothSensorProvider = ({
       });
       return;
     }
-
     const timestamp = Math.floor(Date.now() / 1000);
     const buffer = new ArrayBuffer(4);
     new DataView(buffer).setUint32(0, timestamp, true);
@@ -213,117 +212,61 @@ export const BluetoothSensorProvider = ({
   };
 
   // ---------------- Start streaming ----------------
-  const startStreaming = async (measurementCharUuid: string) => {
-    const char = characteristics[measurementCharUuid];
-    if (!char)
+
+  const startStreaming = async () => {
+    if (!activeDevice) return;
+
+    const measurementChar = characteristics[activeDevice.measurementCharUuid];
+    const setTimeChar = characteristics[activeDevice.setTimeCharUuid];
+
+    if (!measurementChar || !setTimeChar) {
+      console.error("🔹 Characteristics currently available:", characteristics);
       return addToast({
-        title: "Measurement characteristic not found",
+        title: "Required characteristics not found",
         color: "warning",
       });
+    }
 
     try {
-      // Stop any existing interval before starting a new one
+      // Stop any existing streaming
       if (streamingIntervalRef.current) {
         clearInterval(streamingIntervalRef.current);
         streamingIntervalRef.current = null;
       }
 
-      await char.startNotifications();
-
-      char.addEventListener(
+      // 1️⃣ Start notifications on measurement characteristic
+      await measurementChar.startNotifications();
+      measurementChar.addEventListener(
         "characteristicvaluechanged",
-        async (event: any) => {
+        (event: any) => {
           try {
             const value: DataView = event.target.value;
             let hexString = "";
             for (let i = 0; i < value.byteLength; i++) {
               hexString += value.getUint8(i).toString(16).padStart(2, "0");
             }
-
             console.log("📡 Measurement received (hex):", hexString);
-
-            if (!activeDevice) return;
-
-            const numericDeviceId = activeDevice.deviceId;
-
-            const unixTimestamp = parseTimestampHex(hexString);
-            const batteryVoltage = parseBatteryVoltageHex(hexString);
-            const temperature = parseTemperatureHex(hexString);
-            const accel = parseAccelerometerHex(hexString);
-
-            const token = getToken();
-
-            // voltage
-            if (!isNaN(batteryVoltage)) {
-              await fetch(`${API_BASE_URL}/api/voltage`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                  deviceId: numericDeviceId,
-                  voltage: batteryVoltage,
-                  timestamp: unixTimestamp,
-                }),
-              });
-            }
-
-            // temperature
-            if (!isNaN(temperature)) {
-              await fetch(`${API_BASE_URL}/api/temperature`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                  deviceId: numericDeviceId,
-                  temperature,
-                  timestamp: unixTimestamp,
-                }),
-              });
-            }
-
-            // accelerometer
-            if (!isNaN(accel.x) && !isNaN(accel.y) && !isNaN(accel.z)) {
-              await fetch(`${API_BASE_URL}/api/accelerometer`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                  deviceId: numericDeviceId,
-                  x: accel.x,
-                  y: accel.y,
-                  z: accel.z,
-                  timestamp: unixTimestamp,
-                }),
-              });
-            }
+            // TODO: parse and send to backend
           } catch (err) {
             console.error("Error processing measurement:", err);
           }
         }
       );
 
-      // periodic write helper
-      const sendWrite = async () => {
+      // 2️⃣ Send timestamp to setTimeChar after 2 seconds
+      setTimeout(async () => {
         try {
-          const buffer = new Uint8Array([0x01]); // adjust payload as needed
-          await char.writeValue(buffer);
-          console.log("✍️ Periodic write sent at", new Date().toISOString());
+          const timestamp = Math.floor(Date.now() / 1000);
+          const buffer = new ArrayBuffer(4);
+          new DataView(buffer).setUint32(0, timestamp, true);
+          await setTimeChar.writeValue(buffer);
+          console.log("⏰ Timestamp sent to setTimeCharUuid:", timestamp);
+          addToast({ title: "Timestamp sent", color: "success" });
         } catch (err) {
-          console.error("❌ Failed to send periodic write:", err);
+          console.error("❌ Failed to send timestamp:", err);
+          addToast({ title: "Failed to send timestamp", color: "danger" });
         }
-      };
-
-      // first write immediately
-      await sendWrite();
-
-      // schedule every 30 seconds
-      streamingIntervalRef.current = setInterval(sendWrite, 30_000);
+      }, 2000);
 
       addToast({ title: "Streaming started", color: "success" });
     } catch (err) {
@@ -331,6 +274,7 @@ export const BluetoothSensorProvider = ({
       addToast({ title: "Failed to start streaming", color: "danger" });
     }
   };
+
   // ---------------- Get logs ----------------
   const getHistoricalLogs = async (logReadCharUuid: string) => {
     const char = characteristics[logReadCharUuid];
@@ -367,7 +311,7 @@ export const BluetoothSensorProvider = ({
                 const unixTimestamp = parseTimestampHex(hexString);
                 const batteryVoltage = parseBatteryVoltageHex(hexString);
                 const temperature = parseTemperatureHex(hexString);
-                const accel = parseAccelerometerHex(hexString); // NEW
+                const accel = parseAccelerometerHex(hexString);
                 const token = getToken();
 
                 // Send voltage
