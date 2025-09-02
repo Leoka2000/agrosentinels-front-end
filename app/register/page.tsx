@@ -13,7 +13,7 @@ export default function RegisterPage() {
           className="mx-auto mb-4"
         />
        
-        <p className="text-2xl text-default-500">
+        <p className="text-2xl text-default-800">
           Register for an account to continue
         </p>
       </div>

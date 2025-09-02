@@ -9,6 +9,7 @@ import { Button } from "@heroui/button";
 import { Divider } from "@heroui/divider";
 import { Form } from "@heroui/form";
 import { ToastProvider, addToast } from "@heroui/toast";
+import { Card } from "@heroui/card";
 
 export default function RegisterForm() {
   const router = useRouter();
@@ -82,9 +83,9 @@ export default function RegisterForm() {
      
 
       <div className="w-full mx-auto flex justify-center">
-        <div className="rounded-large bg-content dark:bg-neutral-900 shadow-small flex w-full max-w-sm flex-col gap-4 px-8 pt-10 pb-10">
+        <Card className="p-10">
           <Form
-            className="flex flex-col gap-3"
+            className="flex flex-col w-80 gap-3"
             validationBehavior="native"
             onSubmit={handleSubmit}
           >
@@ -157,7 +158,7 @@ export default function RegisterForm() {
               Log In
             </Link>
           </p>
-        </div>
+        </Card>
       </div>
     </>
   );

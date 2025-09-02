@@ -212,7 +212,6 @@ export const BluetoothSensorProvider = ({
   };
 
   // ---------------- Start streaming ----------------
-
   const startStreaming = async () => {
     if (!activeDevice) return;
 
@@ -238,7 +237,7 @@ export const BluetoothSensorProvider = ({
       await measurementChar.startNotifications();
       measurementChar.addEventListener(
         "characteristicvaluechanged",
-        (event: any) => {
+        async (event: any) => {
           try {
             const value: DataView = event.target.value;
             let hexString = "";
@@ -246,7 +245,64 @@ export const BluetoothSensorProvider = ({
               hexString += value.getUint8(i).toString(16).padStart(2, "0");
             }
             console.log("📡 Measurement received (hex):", hexString);
-            // TODO: parse and send to backend
+
+            if (!activeDevice) return;
+            const numericDeviceId = activeDevice.deviceId;
+            const unixTimestamp = parseTimestampHex(hexString);
+            const batteryVoltage = parseBatteryVoltageHex(hexString);
+            const temperature = parseTemperatureHex(hexString);
+            const accel = parseAccelerometerHex(hexString);
+            const token = getToken();
+
+            // Send voltage
+            if (!isNaN(batteryVoltage)) {
+              await fetch(`${API_BASE_URL}/api/voltage`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  deviceId: numericDeviceId,
+                  voltage: batteryVoltage,
+                  timestamp: unixTimestamp,
+                }),
+              });
+            }
+
+            // Send temperature
+            if (!isNaN(temperature)) {
+              await fetch(`${API_BASE_URL}/api/temperature`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  deviceId: numericDeviceId,
+                  temperature,
+                  timestamp: unixTimestamp,
+                }),
+              });
+            }
+
+            // Send accelerometer
+            if (!isNaN(accel.x) && !isNaN(accel.y) && !isNaN(accel.z)) {
+              await fetch(`${API_BASE_URL}/api/accelerometer`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  deviceId: numericDeviceId,
+                  x: accel.x,
+                  y: accel.y,
+                  z: accel.z,
+                  timestamp: unixTimestamp,
+                }),
+              });
+            }
           } catch (err) {
             console.error("Error processing measurement:", err);
           }

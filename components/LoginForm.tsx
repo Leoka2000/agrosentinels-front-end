@@ -13,6 +13,7 @@ import { addToast } from "@heroui/toast";
 import Image from "next/image";
 import { setToken } from "@/lib/auth";
 import { Eye, EyeClosed, Link as LinkIcon } from "lucide-react";
+import { Card } from "@heroui/card";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -60,15 +61,15 @@ export default function LoginForm() {
 
   return (
     <>
-      {/* Toast provider fixed at top-right */}
-      <div className="fixed z-[100]">
+
+      <div className="fixed  z-[100]">
       
       </div>
 
       <div className="w-full mx-auto flex justify-center">
-        <div className="rounded-large bg-content dark:bg-neutral-900 shadow-small flex w-full max-w-sm flex-col gap-4 px-8 pt-10 pb-10">
+        <Card className="p-10">
           <Form
-            className="flex flex-col gap-3"
+            className="flex flex-col w-80 gap-3"
             validationBehavior="native"
             onSubmit={handleSubmit}
           >
@@ -124,11 +125,11 @@ export default function LoginForm() {
 
           <div className="flex items-center gap-4 py-2">
             <Divider className="flex-1" />
-            <p className="text-tiny text-default-500 shrink-0">OR</p>
+            <p className="text-tiny text-default-500 my-1 shrink-0">OR</p>
             <Divider className="flex-1" />
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col mb-5 gap-2">
             <Button
               startContent={
                 <Image
@@ -150,7 +151,7 @@ export default function LoginForm() {
               Sign Up
             </Link>
           </p>
-        </div>
+        </Card>
       </div>
     </>
   );
