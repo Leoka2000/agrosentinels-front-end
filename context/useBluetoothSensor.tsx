@@ -1,5 +1,4 @@
 "use client";
-
 import React, {
   createContext,
   useCallback,
@@ -16,23 +15,28 @@ import {
   parseBatteryVoltageHex,
   parseTemperatureHex,
   parseAccelerometerHex,
+  parseFrequencyHex,
+  parseAmplitudeHex,
 } from "../lib/utils";
 
 interface ActiveDevice {
   deviceId: number;
   deviceName: string;
-  serviceUuid: string;
-  readNotifyCharacteristicUuid: string;
-  writeCharacteristicUuid: string;
-  measurementCharUuid: string;
-  setTimeCharUuid: string;
   userId: number;
+  serviceUuid: string;
+  measurementCharUuid: string;
+  alarmCharUuid: string;
+  ledControlCharUuid: string;
+  logReadCharUuid: string;
+  setTimeCharUuid: string;
+  sleepControlCharUuid: string;
+  registeredDevice: boolean;
 }
 
 interface BluetoothDevice {
   id: string;
   name?: string;
-  gatt?: BluetoothRemoteGATTServer;
+  gatt?: any;
 }
 
 interface BluetoothSensorContextValue {
@@ -46,8 +50,12 @@ interface BluetoothSensorContextValue {
   writeSetTime: (setTimeCharUuid: string) => Promise<void>;
   writeSleepOn: (sleepControlCharUuid: string) => Promise<void>;
   writeSleepOff: (sleepControlCharUuid: string) => Promise<void>;
-  startStreaming: (measurementCharUuid: string) => Promise<void>;
-  getHistoricalLogs: (logReadCharUuid: string) => Promise<void>;
+  startStreaming: () => Promise<void>;
+  getHistoricalLogs: (
+    logReadCharUuid: string,
+    requestType?: "all" | "new" | "since",
+    sinceTimestamp?: number
+  ) => Promise<void>;
 }
 
 const BluetoothSensorContext =
@@ -105,9 +113,10 @@ export const BluetoothSensorProvider = ({
   useEffect(() => {
     fetchActiveDevice();
   }, [fetchActiveDevice]);
+
   useEffect(() => {
     if (deviceSelectionTrigger !== undefined && deviceSelectionTrigger > 0) {
-      console.log("🔔 Device selection changed, refreshing active device...");
+      console.log("Device selection changed, refreshing active device...");
       fetchActiveDevice();
     }
   }, [deviceSelectionTrigger, fetchActiveDevice]);
@@ -173,6 +182,7 @@ export const BluetoothSensorProvider = ({
     addToast({ title: "Disconnected", color: "warning" });
   };
 
+  // ---------------- Write Big-Endian Timestamp ----------------
   const writeSetTime = async (setTimeCharUuid: string): Promise<void> => {
     const char = characteristics[setTimeCharUuid];
     if (!char) {
@@ -182,19 +192,18 @@ export const BluetoothSensorProvider = ({
       });
       return;
     }
-    // get current Unix timestamp (seconds since 1970)
+    // Get current Unix timestamp (seconds since 1970)
     const timestamp = Math.floor(Date.now() / 1000);
-    // create a 4-byte buffer
+    // Write timestamp as 4-byte big-endian
     const buffer = new ArrayBuffer(4);
-    // Write timestamp to buffer in Little-Endian format (true)
-    new DataView(buffer).setUint32(0, timestamp, true);
-
-    // write the buffer to the devices Set Time characteristic
+    const view = new DataView(buffer);
+    view.setUint32(0, timestamp, false); // false = big-endian
     await char.writeValue(buffer);
-    addToast({ title: "Timestamp sent", color: "success" });
-    console.log("⏰ Timestamp sent:", timestamp);
+    addToast({ title: "Timestamp sent (big-endian)", color: "success" });
+    console.log("⏰ Timestamp sent (big-endian):", timestamp.toString(16));
   };
 
+  // ---------------- Sleep Control ----------------
   const writeSleepOn = async (sleepControlCharUuid: string) => {
     const char = characteristics[sleepControlCharUuid];
     if (!char)
@@ -202,7 +211,7 @@ export const BluetoothSensorProvider = ({
         title: "Sleep Control characteristic not found",
         color: "warning",
       });
-    await char.writeValue(Uint8Array.of(0x4e));
+    await char.writeValue(Uint8Array.of(0x4e)); // Sleep ON
     addToast({ title: "Sleep ON sent", color: "success" });
   };
 
@@ -213,17 +222,15 @@ export const BluetoothSensorProvider = ({
         title: "Sleep Control characteristic not found",
         color: "warning",
       });
-    await char.writeValue(Uint8Array.of(0x46));
+    await char.writeValue(Uint8Array.of(0x46)); // Sleep OFF
     addToast({ title: "Sleep OFF sent", color: "success" });
   };
 
   // ---------------- Start streaming ----------------
   const startStreaming = async () => {
     if (!activeDevice) return;
-
     const measurementChar = characteristics[activeDevice.measurementCharUuid];
     const setTimeChar = characteristics[activeDevice.setTimeCharUuid];
-
     if (!measurementChar || !setTimeChar) {
       console.error("🔹 Characteristics currently available:", characteristics);
       return addToast({
@@ -239,7 +246,7 @@ export const BluetoothSensorProvider = ({
         streamingIntervalRef.current = null;
       }
 
-      // 1️⃣ Start notifications on measurement characteristic
+      // Start notifications
       await measurementChar.startNotifications();
       measurementChar.addEventListener(
         "characteristicvaluechanged",
@@ -254,13 +261,43 @@ export const BluetoothSensorProvider = ({
 
             if (!activeDevice) return;
             const numericDeviceId = activeDevice.deviceId;
+
+            // Parse all values
             const unixTimestamp = parseTimestampHex(hexString);
             const batteryVoltage = parseBatteryVoltageHex(hexString);
             const temperature = parseTemperatureHex(hexString);
             const accel = parseAccelerometerHex(hexString);
+            const frequencies = parseFrequencyHex(hexString);
+            const amplitudes = parseAmplitudeHex(hexString);
             const token = getToken();
 
-            // send voltage
+            // Log all values being sent to backend
+            console.log("📤 Sending to backend:", {
+              deviceId: numericDeviceId,
+              timestamp: unixTimestamp,
+              voltage: !isNaN(batteryVoltage) ? batteryVoltage : "invalid",
+              temperature: !isNaN(temperature) ? temperature : "invalid",
+              accelerometer:
+                !isNaN(accel.x) && !isNaN(accel.y) && !isNaN(accel.z)
+                  ? accel
+                  : "invalid",
+              frequencies:
+                !isNaN(frequencies.freq1) &&
+                !isNaN(frequencies.freq2) &&
+                !isNaN(frequencies.freq3) &&
+                !isNaN(frequencies.freq4)
+                  ? frequencies
+                  : "invalid",
+              amplitudes:
+                !isNaN(amplitudes.ampl1) &&
+                !isNaN(amplitudes.ampl2) &&
+                !isNaN(amplitudes.ampl3) &&
+                !isNaN(amplitudes.ampl4)
+                  ? amplitudes
+                  : "invalid",
+            });
+
+            // Send voltage
             if (!isNaN(batteryVoltage)) {
               await fetch(`${API_BASE_URL}/api/voltage`, {
                 method: "POST",
@@ -276,7 +313,7 @@ export const BluetoothSensorProvider = ({
               });
             }
 
-            // send temperature
+            // Send temperature
             if (!isNaN(temperature)) {
               await fetch(`${API_BASE_URL}/api/temperature`, {
                 method: "POST",
@@ -292,7 +329,7 @@ export const BluetoothSensorProvider = ({
               });
             }
 
-            // send accelerometer
+            // Send accelerometer
             if (!isNaN(accel.x) && !isNaN(accel.y) && !isNaN(accel.z)) {
               await fetch(`${API_BASE_URL}/api/accelerometer`, {
                 method: "POST",
@@ -309,21 +346,64 @@ export const BluetoothSensorProvider = ({
                 }),
               });
             }
+
+            // Send frequencies
+            if (
+              !isNaN(frequencies.freq1) &&
+              !isNaN(frequencies.freq2) &&
+              !isNaN(frequencies.freq3) &&
+              !isNaN(frequencies.freq4)
+            ) {
+              await fetch(`${API_BASE_URL}/api/frequency`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  deviceId: numericDeviceId,
+                  freq1: frequencies.freq1,
+                  freq2: frequencies.freq2,
+                  freq3: frequencies.freq3,
+                  freq4: frequencies.freq4,
+                  timestamp: unixTimestamp,
+                }),
+              });
+            }
+
+            // Send amplitudes
+            if (
+              !isNaN(amplitudes.ampl1) &&
+              !isNaN(amplitudes.ampl2) &&
+              !isNaN(amplitudes.ampl3) &&
+              !isNaN(amplitudes.ampl4)
+            ) {
+              await fetch(`${API_BASE_URL}/api/amplitude`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  deviceId: numericDeviceId,
+                  ampl1: amplitudes.ampl1,
+                  ampl2: amplitudes.ampl2,
+                  ampl3: amplitudes.ampl3,
+                  ampl4: amplitudes.ampl4,
+                  timestamp: unixTimestamp,
+                }),
+              });
+            }
           } catch (err) {
             console.error("Error processing measurement:", err);
           }
         }
       );
 
-      // send timestamp to setTimeChar after 2 seconds
+      // Send timestamp after 2 seconds
       setTimeout(async () => {
         try {
-          const timestamp = Math.floor(Date.now() / 1000);
-          const buffer = new ArrayBuffer(4);
-          new DataView(buffer).setUint32(0, timestamp, true);
-          await setTimeChar.writeValue(buffer);
-          console.log("⏰ Timestamp sent to setTimeCharUuid:", timestamp);
-          addToast({ title: "Timestamp sent", color: "success" });
+          await writeSetTime(activeDevice.setTimeCharUuid);
         } catch (err) {
           console.error("❌ Failed to send timestamp:", err);
           addToast({ title: "Failed to send timestamp", color: "danger" });
@@ -336,7 +416,6 @@ export const BluetoothSensorProvider = ({
       addToast({ title: "Failed to start streaming", color: "danger" });
     }
   };
-
   // ---------------- get logs ----------------
   const getHistoricalLogs = async (logReadCharUuid: string) => {
     const char = characteristics[logReadCharUuid];
@@ -348,10 +427,21 @@ export const BluetoothSensorProvider = ({
 
     try {
       const timestamp = Math.floor(Date.now() / 1000);
-      const buffer = new ArrayBuffer(4);
-      new DataView(buffer).setUint32(0, timestamp, true);
+
+      // Convert timestamp to 4-byte big-endian Uint8Array
+      const buffer = new Uint8Array(4);
+      buffer[0] = (timestamp >> 24) & 0xff;
+      buffer[1] = (timestamp >> 16) & 0xff;
+      buffer[2] = (timestamp >> 8) & 0xff;
+      buffer[3] = timestamp & 0xff;
+
       await char.writeValue(buffer);
-      console.log("📝 Sent timestamp to log char:", timestamp);
+      console.log(
+        "📝 Sent timestamp to log char (big-endian hex):",
+        Array.from(buffer)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("")
+      );
 
       setTimeout(async () => {
         try {
@@ -362,86 +452,74 @@ export const BluetoothSensorProvider = ({
           }
           console.log("📜 Log response (hex):", hexString);
 
-          setTimeout(async () => {
-            if (activeDevice?.setTimeCharUuid) {
-              try {
-                await writeSetTime(activeDevice.setTimeCharUuid);
-                console.log("⏰ writeSetTime called after 2s of reading logs");
+          if (!activeDevice) return;
+          const numericDeviceId = activeDevice.deviceId;
+          const unixTimestamp = parseTimestampHex(hexString);
+          const batteryVoltage = parseBatteryVoltageHex(hexString);
+          const temperature = parseTemperatureHex(hexString);
+          const accel = parseAccelerometerHex(hexString);
+          const token = getToken();
 
-                if (!activeDevice) return;
-                const numericDeviceId = activeDevice.deviceId;
-                const unixTimestamp = parseTimestampHex(hexString);
-                const batteryVoltage = parseBatteryVoltageHex(hexString);
-                const temperature = parseTemperatureHex(hexString);
-                const accel = parseAccelerometerHex(hexString);
-                const token = getToken();
+          if (!isNaN(batteryVoltage)) {
+            await fetch(`${API_BASE_URL}/api/voltage`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                deviceId: numericDeviceId,
+                voltage: batteryVoltage,
+                timestamp: unixTimestamp,
+              }),
+            });
+          }
+          if (!isNaN(temperature)) {
+            await fetch(`${API_BASE_URL}/api/temperature`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                deviceId: numericDeviceId,
+                temperature,
+                timestamp: unixTimestamp,
+              }),
+            });
+          }
+          if (!isNaN(accel.x) && !isNaN(accel.y) && !isNaN(accel.z)) {
+            await fetch(`${API_BASE_URL}/api/accelerometer`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                deviceId: numericDeviceId,
+                x: accel.x,
+                y: accel.y,
+                z: accel.z,
+                timestamp: unixTimestamp,
+              }),
+            });
+          }
 
-                // send voltage
-                if (!isNaN(batteryVoltage)) {
-                  await fetch(`${API_BASE_URL}/api/voltage`, {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                      deviceId: numericDeviceId,
-                      voltage: batteryVoltage,
-                      timestamp: unixTimestamp,
-                    }),
-                  });
-                }
-
-                // send temperature
-                if (!isNaN(temperature)) {
-                  await fetch(`${API_BASE_URL}/api/temperature`, {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                      deviceId: numericDeviceId,
-                      temperature,
-                      timestamp: unixTimestamp,
-                    }),
-                  });
-                }
-
-                // send accelerometer
-                if (!isNaN(accel.x) && !isNaN(accel.y) && !isNaN(accel.z)) {
-                  await fetch(`${API_BASE_URL}/api/accelerometer`, {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                      deviceId: numericDeviceId,
-                      x: accel.x,
-                      y: accel.y,
-                      z: accel.z,
-                      timestamp: unixTimestamp,
-                    }),
-                  });
-                }
-              } catch (err) {
-                console.error(" Failed to call writeSetTime:", err);
-              }
-            }
-          }, 2000);
+          // Update device time after reading logs
+          if (activeDevice?.setTimeCharUuid) {
+            await writeSetTime(activeDevice.setTimeCharUuid);
+          }
         } catch (err) {
-          console.error(" Failed to read logs:", err);
+          console.error("Failed to read logs or send to backend:", err);
         }
       }, 1000);
 
       addToast({ title: "Log capture started", color: "success" });
     } catch (err) {
-      console.error(" Failed to start log capture:", err);
+      console.error("Failed to start log capture:", err);
       addToast({ title: "Failed to start log capture", color: "danger" });
     }
   };
-
   return (
     <BluetoothSensorContext.Provider
       value={{

@@ -15,7 +15,7 @@ const BluetoothConnectButton: React.FC = () => {
     writeSleepOn,
     writeSleepOff,
     startStreaming,
-     getHistoricalLogs,
+    getHistoricalLogs,
   } = useBluetoothSensor();
 
   const [isScanning, setIsScanning] = useState(false);
@@ -109,16 +109,15 @@ const BluetoothConnectButton: React.FC = () => {
           >
             Start Streaming
           </Button>
-           <Button
-      onPress={() => getHistoricalLogs(activeDevice.logReadCharUuid)}
-      color="warning"
-    >
-      Start Capturing Logs
-    </Button>
+          <Button
+            onPress={() => getHistoricalLogs(activeDevice.logReadCharUuid)}
+            color="warning"
+          >
+            Start Capturing Logs
+          </Button>
         </div>
       )}
     </div>
   );
 };
-
 export default BluetoothConnectButton;
