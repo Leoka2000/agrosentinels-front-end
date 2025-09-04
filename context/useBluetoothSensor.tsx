@@ -47,7 +47,9 @@ interface BluetoothSensorContextValue {
   localConnected: boolean;
   currentDevice: BluetoothDevice | null;
   characteristics: Record<string, BluetoothRemoteGATTCharacteristic>;
-  setCharacteristics: (chars: Record<string, BluetoothRemoteGATTCharacteristic>) => void;
+  setCharacteristics: (
+    chars: Record<string, BluetoothRemoteGATTCharacteristic>
+  ) => void;
   writeSetTime: (setTimeCharUuid: string) => Promise<void>;
   writeSleepOn: (sleepControlCharUuid: string) => Promise<void>;
   writeSleepOff: (sleepControlCharUuid: string) => Promise<void>;
@@ -397,16 +399,6 @@ export const BluetoothSensorProvider = ({
         }
       );
 
-      // Send timestamp after 2 seconds
-      setTimeout(async () => {
-        try {
-          await writeSetTime(activeDevice.setTimeCharUuid);
-        } catch (err) {
-          console.error("❌ Failed to send timestamp:", err);
-          addToast({ title: "Failed to send timestamp", color: "danger" });
-        }
-      }, 2000);
-
       addToast({ title: "Streaming started", color: "success" });
     } catch (err) {
       console.error("❌ Failed to start streaming:", err);
@@ -415,7 +407,10 @@ export const BluetoothSensorProvider = ({
   };
 
   // ---------------- get logs ----------------
-  const getHistoricalLogs = async (logReadCharUuid: string) => {
+  const getHistoricalLogs = async (
+    logReadCharUuid: string,
+    onComplete?: () => void
+  ) => {
     const char = characteristics[logReadCharUuid];
     if (!char) {
       addToast({
@@ -440,11 +435,12 @@ export const BluetoothSensorProvider = ({
       const timestamp = Math.floor(Date.now() / 1000);
 
       // Convert timestamp to 4-byte big-endian Uint8Array
-      const buffer = new Uint8Array(4);
-      buffer[0] = (timestamp >> 24) & 0xff;
-      buffer[1] = (timestamp >> 16) & 0xff;
-      buffer[2] = (timestamp >> 8) & 0xff;
-      buffer[3] = timestamp & 0xff;
+      const buffer = new Uint8Array([
+        (timestamp >> 24) & 0xff,
+        (timestamp >> 16) & 0xff,
+        (timestamp >> 8) & 0xff,
+        timestamp & 0xff,
+      ]);
 
       // Write timestamp to initiate log read
       await char.writeValue(buffer);
@@ -464,7 +460,7 @@ export const BluetoothSensorProvider = ({
         }
         console.log(`📜 Acknowledgment response (hex): ${ackHex}`);
       } catch (err) {
-        console.warn("⚠️ No acknowledgment response received, proceeding to read logs:", err);
+        console.warn("⚠️ No acknowledgment response received:", err);
       }
 
       // Read up to 8 packets
@@ -480,22 +476,26 @@ export const BluetoothSensorProvider = ({
           }
           console.log(`📜 Log packet ${packetCount + 1} (hex):`, hexString);
 
-          // Skip short responses (e.g., 8 chars = 4 bytes)
+          // ✅ Check if packet is all zeros (indicating no more data)
+          if (/^0+$/.test(hexString)) {
+            console.log(`🛑 Packet ${packetCount + 1} is all zeros, stopping`);
+            addToast({ title: "All packets collected", color: "success" });
+            if (onComplete) onComplete(); // 🔥 notify UI
+            break;
+          }
+
+          // Skip short responses (e.g., incomplete data)
           if (hexString.length < 480) {
-            console.warn(`⚠️ Short response (length ${hexString.length}) for packet ${packetCount + 1}, skipping`);
+            console.warn(
+              `⚠️ Short response (length ${hexString.length}) for packet ${
+                packetCount + 1
+              }, skipping`
+            );
             packetCount++;
             continue;
           }
 
-          // Check if packet is all zeros (indicating no more data)
-          if (hexString.match(/^0+$/)) {
-            console.log(`🛑 Packet ${packetCount + 1} is all zeros, stopping`);
-            packetCount++;
-            break;
-          }
-
-          // Each packet is 240 bytes (480 hex chars), containing up to 8 measurements (30 bytes/60 hex chars each)
-          // Split into up to 8 measurements
+          // Each packet is 240 bytes (480 hex chars), up to 8 measurements
           const measurements: string[] = [];
           for (let i = 0; i < 8; i++) {
             const start = i * 60;
@@ -506,14 +506,16 @@ export const BluetoothSensorProvider = ({
           // Process each measurement
           for (let i = 0; i < measurements.length; i++) {
             const measurementHex = measurements[i];
-            // Check if measurement is invalid (timestamp all zeros)
             const tsHex = measurementHex.slice(0, 8);
             if (tsHex === "00000000") {
-              console.log(`📜 Skipping invalid measurement ${i + 1} in packet ${packetCount + 1} (timestamp 0)`);
+              console.log(
+                `📜 Skipping invalid measurement ${i + 1} in packet ${
+                  packetCount + 1
+                } (timestamp 0)`
+              );
               continue;
             }
 
-            // Parse all parameters
             const unixTimestamp = parseTimestampHex(measurementHex);
             const batteryVoltage = parseBatteryVoltageHex(measurementHex);
             const temperature = parseTemperatureHex(measurementHex);
@@ -521,33 +523,22 @@ export const BluetoothSensorProvider = ({
             const frequencies = parseFrequencyHex(measurementHex);
             const amplitudes = parseAmplitudeHex(measurementHex);
 
-            // Log all values being sent to backend
-            console.log(`📤 Sending measurement ${i + 1} from packet ${packetCount + 1} to backend:`, {
-              deviceId: numericDeviceId,
-              timestamp: unixTimestamp,
-              voltage: !isNaN(batteryVoltage) ? batteryVoltage : "invalid",
-              temperature: !isNaN(temperature) ? temperature : "invalid",
-              accelerometer:
-                !isNaN(accel.x) && !isNaN(accel.y) && !isNaN(accel.z)
-                  ? accel
-                  : "invalid",
-              frequencies:
-                !isNaN(frequencies.freq1) &&
-                !isNaN(frequencies.freq2) &&
-                !isNaN(frequencies.freq3) &&
-                !isNaN(frequencies.freq4)
-                  ? frequencies
-                  : "invalid",
-              amplitudes:
-                !isNaN(amplitudes.ampl1) &&
-                !isNaN(amplitudes.ampl2) &&
-                !isNaN(amplitudes.ampl3) &&
-                !isNaN(amplitudes.ampl4)
-                  ? amplitudes
-                  : "invalid",
-            });
+            console.log(
+              `📤 Sending measurement ${i + 1} from packet ${
+                packetCount + 1
+              } to backend:`,
+              {
+                deviceId: numericDeviceId,
+                timestamp: unixTimestamp,
+                voltage: batteryVoltage,
+                temperature,
+                accel,
+                frequencies,
+                amplitudes,
+              }
+            );
 
-            // Send voltage
+            // --- send to backend ---
             if (!isNaN(batteryVoltage)) {
               await fetch(`${API_BASE_URL}/api/voltage`, {
                 method: "POST",
@@ -563,7 +554,6 @@ export const BluetoothSensorProvider = ({
               });
             }
 
-            // Send temperature
             if (!isNaN(temperature)) {
               await fetch(`${API_BASE_URL}/api/temperature`, {
                 method: "POST",
@@ -579,7 +569,6 @@ export const BluetoothSensorProvider = ({
               });
             }
 
-            // Send accelerometer
             if (!isNaN(accel.x) && !isNaN(accel.y) && !isNaN(accel.z)) {
               await fetch(`${API_BASE_URL}/api/accelerometer`, {
                 method: "POST",
@@ -597,7 +586,6 @@ export const BluetoothSensorProvider = ({
               });
             }
 
-            // Send frequencies
             if (
               !isNaN(frequencies.freq1) &&
               !isNaN(frequencies.freq2) &&
@@ -621,7 +609,6 @@ export const BluetoothSensorProvider = ({
               });
             }
 
-            // Send amplitudes
             if (
               !isNaN(amplitudes.ampl1) &&
               !isNaN(amplitudes.ampl2) &&
@@ -646,6 +633,10 @@ export const BluetoothSensorProvider = ({
             }
           }
 
+          addToast({
+            title: `Packet ${packetCount + 1} arrived successfully`,
+            color: "success",
+          });
           packetCount++;
         } catch (err) {
           console.error(`Failed to read packet ${packetCount + 1}:`, err);
@@ -658,8 +649,6 @@ export const BluetoothSensorProvider = ({
       if (activeDevice?.setTimeCharUuid) {
         await writeSetTime(activeDevice.setTimeCharUuid);
       }
-
-      addToast({ title: `Log capture completed (${packetCount} packets)`, color: "success" });
     } catch (err) {
       console.error("Failed to start log capture:", err);
       addToast({ title: "Failed to start log capture", color: "danger" });

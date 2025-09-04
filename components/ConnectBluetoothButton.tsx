@@ -3,17 +3,26 @@
 import React, { useState, useEffect } from "react";
 import { Bluetooth, BluetoothOff } from "lucide-react";
 import { addToast } from "@heroui/toast";
-import { Button} from "@heroui/button"
+import { Button } from "@heroui/button";
 import { useBluetoothSensor } from "../context/useBluetoothSensor";
 import { Spinner } from "@heroui/spinner";
-import { Modal, ModalContent, ModalHeader, ModalBody, useDisclosure } from "@heroui/modal";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  useDisclosure,
+} from "@heroui/modal";
 import { Progress } from "@heroui/progress";
 import { Alert } from "@heroui/alert";
-import TestButtons from "./TestButtons";
 
 // Generate random increments summing to 100 for 60 steps
 const generateRandomIncrements = (steps: number = 60): number[] => {
-  const increments = Array.from({ length: steps }, () => Math.random() * 9.5 + 0.5); // Random 0.5–10
+  const increments = Array.from(
+    { length: steps },
+    () => Math.random() * 9.5 + 0.5
+  ); // Random 0.5–10
   const sum = increments.reduce((acc, val) => acc + val, 0);
   return increments.map((inc) => (inc / sum) * 100); // Normalize to sum to 100
 };
@@ -29,13 +38,14 @@ const BluetoothConnectButton: React.FC = () => {
     writeSleepOff,
     startStreaming,
     getHistoricalLogs,
+    setLogCaptureComplete,
   } = useBluetoothSensor();
 
   const [isScanning, setIsScanning] = useState(false);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [progress, setProgress] = useState(0);
   const [packetCount, setPacketCount] = useState(0);
-  const [isZeroPacketReceived, setIsZeroPacketReceived] = useState(false);
+  const [isLogCaptureComplete, setIsLogCaptureComplete] = useState(false);
   const [increments, setIncrements] = useState(generateRandomIncrements());
   const [incrementIndex, setIncrementIndex] = useState(0);
 
@@ -44,7 +54,12 @@ const BluetoothConnectButton: React.FC = () => {
     console.log("🔹 Active device in context:", activeDevice);
   }, [activeDevice]);
 
-  // Auto-send Sleep ON after connection
+  // Debug: log isLogCaptureComplete changes
+  useEffect(() => {
+    console.log("🔄 isLogCaptureComplete changed:", isLogCaptureComplete);
+  }, [isLogCaptureComplete]);
+
+  // Auto-send Sleep ON and timestamp after connection
   useEffect(() => {
     if (
       localConnected &&
@@ -56,16 +71,39 @@ const BluetoothConnectButton: React.FC = () => {
           await writeSleepOn(activeDevice.sleepControlCharUuid);
         } catch (err) {
           console.error("❌ Failed to send Sleep ON:", err);
+          addToast({
+            title: "Failed to send Sleep ON",
+            color: "danger",
+            timeout: 3000,
+            shouldShowTimeoutProgress: true,
+          });
         }
       }, 1000);
 
-      return () => clearTimeout(timer1);
+      const timer2 = setTimeout(async () => {
+        try {
+          await writeSetTime(activeDevice.setTimeCharUuid);
+        } catch (err) {
+          console.error("❌ Failed to send timestamp after connection:", err);
+          addToast({
+            title: "Failed to send timestamp after connection",
+            color: "danger",
+            timeout: 3000,
+            shouldShowTimeoutProgress: true,
+          });
+        }
+      }, 2000);
+
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
     }
-  }, [localConnected, activeDevice, writeSleepOn]);
+  }, [localConnected, activeDevice, writeSleepOn, writeSetTime]);
 
   // Progress bar random increase (reach 100% in 60 seconds)
   useEffect(() => {
-    if (isOpen && !isZeroPacketReceived) {
+    if (isOpen && !isLogCaptureComplete) {
       const interval = setInterval(() => {
         setProgress((prev) => {
           if (prev >= 100) return prev; // Stay at 100 until packet arrives
@@ -78,7 +116,7 @@ const BluetoothConnectButton: React.FC = () => {
 
       return () => clearInterval(interval);
     }
-  }, [isOpen, isZeroPacketReceived, incrementIndex, increments]);
+  }, [isOpen, isLogCaptureComplete, incrementIndex, increments]);
 
   // Reset increments on packet arrival or cycle completion
   const resetProgressCycle = () => {
@@ -87,34 +125,42 @@ const BluetoothConnectButton: React.FC = () => {
     setIncrements(generateRandomIncrements());
   };
 
+  // Reset modal state when closing
+  const handleClose = () => {
+    setProgress(0);
+    setPacketCount(0);
+    setIsLogCaptureComplete(false);
+    setLogCaptureComplete(false); // Reset in context
+    setIncrementIndex(0);
+    setIncrements(generateRandomIncrements());
+    onClose();
+  };
+
   // Fetch packets every 60 seconds
   useEffect(() => {
-    if (isOpen && !isZeroPacketReceived && activeDevice?.logReadCharUuid) {
+    if (isOpen && !isLogCaptureComplete && activeDevice?.logReadCharUuid) {
       const fetchPacket = async () => {
         try {
-          const packetHex = await getHistoricalLogs(activeDevice.logReadCharUuid);
-          setProgress(100); // Jump to 100% on packet arrival
-          addToast({
-            title: "Packet arrived successfully",
-            timeout: 3000,
-            shouldShowTimeoutProgress: true,
+          await getHistoricalLogs(activeDevice.logReadCharUuid, () => {
+            console.log("✅ Auto getHistoricalLogs completed");
+            setIsLogCaptureComplete(true);
           });
+          setProgress(100); // Jump to 100% on packet fetch
           setPacketCount((prev) => prev + 1);
-          if (packetHex === "0".repeat(480)) {
-            setIsZeroPacketReceived(true);
-          }
-          setTimeout(resetProgressCycle, 100); // Reset progress after brief delay
+          setTimeout(resetProgressCycle, 100);
         } catch (err) {
           console.error("❌ Failed to fetch packet:", err);
+          addToast({
+            title: "Failed to fetch packet",
+            color: "danger",
+          });
         }
       };
 
-      fetchPacket(); // Initial fetch
-      const interval = setInterval(fetchPacket, 60000); // Every 60 seconds
-
+      const interval = setInterval(fetchPacket, 60000);
       return () => clearInterval(interval);
     }
-  }, [isOpen, isZeroPacketReceived, activeDevice, getHistoricalLogs]);
+  }, [isOpen, isLogCaptureComplete, activeDevice, getHistoricalLogs]);
 
   const handleScan = async () => {
     if (!activeDevice?.serviceUuid) {
@@ -134,6 +180,7 @@ const BluetoothConnectButton: React.FC = () => {
         onPress={onOpen}
         color="primary"
         variant="solid"
+        isDisabled={!localConnected} // Enable only when connected
       >
         Fetch Packets
       </Button>
@@ -193,7 +240,14 @@ const BluetoothConnectButton: React.FC = () => {
           </Button>
 
           <Button
-            onPress={() => getHistoricalLogs(activeDevice.logReadCharUuid)}
+            onPress={() =>
+              getHistoricalLogs(activeDevice.logReadCharUuid, () => {
+                console.log(
+                  "✅ Manual getHistoricalLogs completed, setting isLogCaptureComplete"
+                );
+                setIsLogCaptureComplete(true);
+              })
+            }
             color="warning"
             isDisabled={!activeDevice.logReadCharUuid}
           >
@@ -205,8 +259,9 @@ const BluetoothConnectButton: React.FC = () => {
       <Modal
         backdrop="blur"
         isOpen={isOpen}
-        isDismissable={isZeroPacketReceived}
-        isKeyboardDismissDisabled={!isZeroPacketReceived}
+        isDismissable={isLogCaptureComplete}
+        isKeyboardDismissDisabled={!isLogCaptureComplete}
+        onClose={handleClose}
       >
         <ModalContent>
           {() => (
@@ -215,10 +270,12 @@ const BluetoothConnectButton: React.FC = () => {
                 Fetching Packets
               </ModalHeader>
               <ModalBody>
-                {isZeroPacketReceived ? (
+                {isLogCaptureComplete ? (
                   <>
-                    <p>All packets collected successfully!</p>
-                    <Alert color="success" title="Success" />
+                    <Alert
+                      color="success"
+                      title="All packets collected successfully!"
+                    />
                   </>
                 ) : (
                   <>
@@ -231,22 +288,20 @@ const BluetoothConnectButton: React.FC = () => {
                       size="md"
                       value={progress}
                     />
-                    <TestButtons onPacketReceived={(packetHex: string) => {
-                      setProgress(100);
-                      addToast({
-                        title: "Packet arrived successfully",
-                        timeout: 3000,
-                        shouldShowTimeoutProgress: true,
-                      });
-                      setPacketCount((prev) => prev + 1);
-                      if (packetHex === "0".repeat(480)) {
-                        setIsZeroPacketReceived(true);
-                      }
-                      setTimeout(resetProgressCycle, 100);
-                    }} />
                   </>
                 )}
               </ModalBody>
+              {isLogCaptureComplete && (
+                <ModalFooter>
+                  <Button
+                    color="primary"
+                    onPress={handleClose}
+                    className="w-full"
+                  >
+                    Close
+                  </Button>
+                </ModalFooter>
+              )}
             </>
           )}
         </ModalContent>
