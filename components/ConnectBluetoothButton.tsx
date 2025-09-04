@@ -1,11 +1,18 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Bluetooth, BluetoothOff } from "lucide-react";
+import {
+  Bluetooth,
+  BluetoothOff,
+  CircleOff,
+  CirclePlay,
+  ClipboardClock,
+} from "lucide-react";
 import { addToast } from "@heroui/toast";
 import { Button } from "@heroui/button";
 import { useBluetoothSensor } from "../context/useBluetoothSensor";
 import { Spinner } from "@heroui/spinner";
+import { Tooltip } from "@heroui/tooltip";
 import {
   Modal,
   ModalContent,
@@ -38,7 +45,6 @@ const BluetoothConnectButton: React.FC = () => {
     writeSleepOff,
     startStreaming,
     getHistoricalLogs,
-    setLogCaptureComplete,
   } = useBluetoothSensor();
 
   const [isScanning, setIsScanning] = useState(false);
@@ -130,7 +136,7 @@ const BluetoothConnectButton: React.FC = () => {
     setProgress(0);
     setPacketCount(0);
     setIsLogCaptureComplete(false);
-    setLogCaptureComplete(false); // Reset in context
+
     setIncrementIndex(0);
     setIncrements(generateRandomIncrements());
     onClose();
@@ -174,90 +180,75 @@ const BluetoothConnectButton: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col pt-3 w-full items-end gap-3">
-      <Button
-        className="w-full"
-        onPress={onOpen}
-        color="primary"
-        variant="solid"
-        isDisabled={!localConnected} // Enable only when connected
-      >
-        Fetch Packets
-      </Button>
+    <div className="flex flex-col pt-3 gap-3">
+      <div className="flex flex-row flex-wrap w-full items-center pt-3">
+        {/* Left group: all action buttons */}
+        <div className="flex flex-row gap-1.5">
+          <Tooltip content="Fetch packets from device">
+            <Button
+              onPress={onOpen}
+              color="warning"
+              variant="faded"
+              isIconOnly
+              isDisabled={!localConnected}
+            >
+              <ClipboardClock size={18} />
+            </Button>
+          </Tooltip>
 
-      {!localConnected ? (
-        <Button
-          className="md:w-58 w-full"
-          onPress={handleScan}
-          color="success"
-          variant="shadow"
-          isDisabled={isScanning || !activeDevice?.serviceUuid}
-          startContent={
-            isScanning ? (
-              <Spinner size="sm" />
-            ) : (
-              <Bluetooth className="h-4 w-4" />
-            )
-          }
-        >
-          {isScanning ? "Scanning..." : "Scan for Devices"}
-        </Button>
-      ) : (
-        <Button
-          onPress={disconnectBluetooth}
-          color="danger"
-          className="md:w-58 w-full"
-          startContent={<BluetoothOff className="h-4 w-4" />}
-        >
-          Disconnect
-        </Button>
-      )}
+         
 
-      {localConnected && activeDevice && (
-        <div className="flex flex-col gap-2 w-full">
-          <Button
-            onPress={() => writeSetTime(activeDevice.setTimeCharUuid)}
-            color="primary"
-            isDisabled={!activeDevice.setTimeCharUuid}
-          >
-            Send Current Timestamp
-          </Button>
-
-          <Button
-            onPress={() => writeSleepOff(activeDevice.sleepControlCharUuid)}
-            color="secondary"
-            isDisabled={!activeDevice.sleepControlCharUuid}
-          >
-            Sleep OFF
-          </Button>
-
-          <Button
-            onPress={() => startStreaming()}
-            color="success"
-            isDisabled={!activeDevice.measurementCharUuid}
-          >
-            Start Streaming
-          </Button>
-
-          <Button
-            onPress={() =>
-              getHistoricalLogs(activeDevice.logReadCharUuid, () => {
-                console.log(
-                  "✅ Manual getHistoricalLogs completed, setting isLogCaptureComplete"
-                );
-                setIsLogCaptureComplete(true);
-              })
-            }
-            color="warning"
-            isDisabled={!activeDevice.logReadCharUuid}
-          >
-            Start Capturing Logs
-          </Button>
+          <Tooltip content="Start streaming data">
+            <Button
+              onPress={() => startStreaming()}
+              color="success"
+              variant="faded"
+              isIconOnly
+              isDisabled={!localConnected || !activeDevice?.measurementCharUuid}
+            >
+              <CirclePlay />
+            </Button>
+          </Tooltip>
         </div>
-      )}
 
+        {/* Scan / Disconnect button always on the far right */}
+        <div className="ml-2">
+          {!localConnected ? (
+            <Tooltip content="Scan for nearby devices">
+              <Button
+                onPress={handleScan}
+                color="success"
+                variant="shadow"
+                isDisabled={isScanning}
+                startContent={
+                  isScanning ? (
+                    <Spinner size="sm"/>
+                  ) : (
+                    <Bluetooth className="h-4 w-4" />
+                  )
+                }
+              >
+                {isScanning ? "Scanning..." : "Scan"}
+              </Button>
+            </Tooltip>
+          ) : (
+            <Tooltip content="Disconnect  from device">
+              <Button
+                onPress={disconnectBluetooth}
+                color="danger"
+                variant="shadow"
+              
+                startContent={<BluetoothOff className="h-4 w-4" />}
+              >
+                Disconnect
+              </Button>
+            </Tooltip>
+          )}
+        </div>
+      </div>
       <Modal
         backdrop="blur"
+        className="pb-2"
         isOpen={isOpen}
         isDismissable={isLogCaptureComplete}
         isKeyboardDismissDisabled={!isLogCaptureComplete}
@@ -266,29 +257,27 @@ const BluetoothConnectButton: React.FC = () => {
         <ModalContent>
           {() => (
             <>
-              <ModalHeader className="flex flex-col gap-1">
-                Fetching Packets
+              <ModalHeader className="flex flex-col gap-3">
+                <span>Fetching Packets</span>
+                {!isLogCaptureComplete && (
+                  <Progress
+                    aria-label="Fetching packet..."
+                    className="w-full"
+                    color="success"
+                    showValueLabel={true}
+                    size="md"
+                    value={progress}
+                  />
+                )}
               </ModalHeader>
               <ModalBody>
                 {isLogCaptureComplete ? (
-                  <>
-                    <Alert
-                      color="success"
-                      title="All packets collected successfully!"
-                    />
-                  </>
+                  <Alert
+                    color="success"
+                    title="All packets collected successfully!"
+                  />
                 ) : (
-                  <>
-                    <p>Waiting for packet {packetCount + 1}...</p>
-                    <Progress
-                      aria-label="Fetching packet..."
-                      className="max-w-md"
-                      color="success"
-                      showValueLabel={true}
-                      size="md"
-                      value={progress}
-                    />
-                  </>
+                  <p>Waiting for packet {packetCount + 1}...</p>
                 )}
               </ModalBody>
               {isLogCaptureComplete && (

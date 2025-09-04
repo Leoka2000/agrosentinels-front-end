@@ -316,7 +316,7 @@ const DashboardContent: React.FC = () => {
               <CardBody>
                 <div className="flex md:flex-row flex-col items-center justify-between w-full">
                   <div className="flex justify-between items-center space-x-2 mb-4">
-                    <Kbd>
+                    <Kbd className="p-1.5">
                       <Bluetooth size={15} />
                     </Kbd>
                     <span className="font-medium text-xl">
