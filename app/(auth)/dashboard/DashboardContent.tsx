@@ -26,6 +26,7 @@ import { PlaceholderChart } from "@/components/PlaceholderChart";
 import { Alert } from "@heroui/alert";
 import { useBluetoothSensor } from "../../../context/useBluetoothSensor";
 import { Input } from "@heroui/input";
+import TemperatureWrapper from "@/components/temperature/TemperatureWrapper";
 
 interface Device {
   id: number;
@@ -70,7 +71,6 @@ const DashboardContent: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [localConnected, setLocalConnected] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
-
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
   const token = getToken();
@@ -329,7 +329,12 @@ const DashboardContent: React.FC = () => {
               <CardBody>
                 <VoltageProvider />
               </CardBody>
-             
+              <CardBody>
+                <TemperatureWrapper />
+              </CardBody>
+               <CardBody>
+                <AccelerometerProvider />
+              </CardBody>
             </Card>
           )}
           <div className="flex justify-center mt-6">

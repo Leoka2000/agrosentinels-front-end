@@ -20,23 +20,21 @@ import { getToken } from "@/lib/auth";
 import { Kbd } from "@heroui/kbd";
 import { Funnel } from "lucide-react";
 
-interface AccelerometerChartProps {
+interface TemperatureChartProps {
   status: string;
 }
 
-interface AccelerometerDataPoint {
-  x: number;
-  y: number;
-  z: number;
-  timestamp: string; // ISO string from backend
-  date?: string;     // formatted for chart axis
+interface TemperatureDataPoint {
+  timestamp: number; // unix timestamp from backend
+  temperature: number | null;
+  date?: string; // formatted for chart
 }
 
-// Chart colors for each axis
 const chartConfig = {
-  x: { label: "X Axis", color: "#f472b6" },      // pink
-  y: { label: "Y Axis", color: "#34d399" },      // green
-  z: { label: "Z Axis", color: "#60a5fa" },      // blue
+  temperature: {
+    label: "Temperature",
+    color: "#db2777", // Choose a distinct color, e.g., blue
+  },
 } satisfies ChartConfig;
 
 const ranges = [
@@ -46,8 +44,8 @@ const ranges = [
   { label: "Last 3 months", value: "3months" },
 ];
 
-export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
-  const [data, setData] = React.useState<AccelerometerDataPoint[]>([]);
+export const TemperatureChart = ({ status }: TemperatureChartProps) => {
+  const [data, setData] = React.useState<TemperatureDataPoint[]>([]);
   const [range, setRange] = React.useState("day");
   const [deviceId, setDeviceId] = React.useState<number | null>(null);
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -74,7 +72,7 @@ export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
     fetchActiveDevice();
   }, [API_BASE_URL]);
 
-  // Fetch accelerometer history
+  // Fetch temperature history
   React.useEffect(() => {
     if (!deviceId) return;
 
@@ -82,18 +80,18 @@ export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
       try {
         const token = await getToken();
         const res = await fetch(
-          `${API_BASE_URL}/api/accelerometer/history?range=${range}&deviceId=${deviceId}`,
+          `${API_BASE_URL}/api/temperature/history?range=${range}&deviceId=${deviceId}`,
           {
             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
           }
         );
-        if (!res.ok) throw new Error("Failed to fetch accelerometer history");
-        const body: AccelerometerDataPoint[] = await res.json();
+        if (!res.ok) throw new Error("Failed to fetch temperature history");
+        const body: TemperatureDataPoint[] = await res.json();
 
-        // Format ISO timestamp for chart's x-axis
+        // Convert unix timestamp to human-readable date
         const formattedData = body.map((point) => ({
           ...point,
-          date: new Date(point.timestamp).toLocaleString("en-GB", {
+          date: new Date(point.timestamp * 1000).toLocaleString("en-GB", {
             day: "2-digit",
             month: "2-digit",
             hour: "2-digit",
@@ -115,7 +113,7 @@ export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
     <Card className="py-4 sm:py-0">
       <CardBody className="flex z-10 flex-col items-stretch !p-0 sm:flex-row">
         <div className="flex flex-1 flex-col justify-center gap-1 py-4 mb-4 px-6 pb-3 sm:pb-0">
-          <h1 className="2xl font-bold">Accelerometer</h1>
+          <h1 className="2xl font-bold">Device Temperature</h1>
           <div className="flex items-center justify-between">
             <p className="leading-4 text-sm py-1">
               <span className={`text-sm font-semibold ${statusColorClass}`}>{status}</span>
@@ -157,17 +155,9 @@ export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
       <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
         <AreaChart data={data} margin={{ left: 12, right: 12 }}>
           <defs>
-            <linearGradient id="fillX" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-x)" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="var(--color-x)" stopOpacity={0.1} />
-            </linearGradient>
-            <linearGradient id="fillY" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-y)" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="var(--color-y)" stopOpacity={0.1} />
-            </linearGradient>
-            <linearGradient id="fillZ" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-z)" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="var(--color-z)" stopOpacity={0.1} />
+            <linearGradient id="fillTemperature" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="var(--color-temperature)" stopOpacity={0.8} />
+              <stop offset="95%" stopColor="var(--color-temperature)" stopOpacity={0.1} />
             </linearGradient>
           </defs>
           <CartesianGrid vertical={false} />
@@ -176,7 +166,7 @@ export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
             axisLine={false}
             tickMargin={8}
             domain={["auto", "auto"]}
-            tickFormatter={(value) => `${value}`}
+            tickFormatter={(value) => `${value}°C`}
           />
           <XAxis
             dataKey="date"
@@ -188,36 +178,18 @@ export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
           <ChartTooltip
             content={
               <ChartTooltipContent
-                className="w-[200px]"
-                nameKey="accelerometer"
+                className="w-[150px]"
+                nameKey="temperature"
                 labelFormatter={(value: any) => value}
-                valueFormatter={(val, props) => `${val}`}
-                keys={["x", "y", "z"]}
+                valueFormatter={(val) => `${val} °C`}
               />
             }
           />
-          {/* Three Area lines for x, y, z */}
           <Area
-            dataKey="x"
+            dataKey="temperature"
             type="monotone"
-            fill="url(#fillX)"
-            stroke="var(--color-x)"
-            strokeWidth={2}
-            isAnimationActive={true}
-          />
-          <Area
-            dataKey="y"
-            type="monotone"
-            fill="url(#fillY)"
-            stroke="var(--color-y)"
-            strokeWidth={2}
-            isAnimationActive={true}
-          />
-          <Area
-            dataKey="z"
-            type="monotone"
-            fill="url(#fillZ)"
-            stroke="var(--color-z)"
+            fill="url(#fillTemperature)"
+            stroke="var(--color-temperature)"
             strokeWidth={2}
             isAnimationActive={true}
           />

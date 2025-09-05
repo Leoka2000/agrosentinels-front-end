@@ -407,138 +407,195 @@ export const BluetoothSensorProvider = ({
   };
 
   // ---------------- get logs ----------------
+
   const getHistoricalLogs = async (
     logReadCharUuid: string,
     onComplete?: () => void
   ) => {
     const char = characteristics[logReadCharUuid];
     if (!char) {
-      addToast({
-        title: "Log characteristic not found",
-        color: "warning",
-      });
+      addToast({ title: "Log characteristic not found", color: "warning" });
       return;
     }
-
     if (!activeDevice) {
-      addToast({
-        title: "No active device selected",
-        color: "warning",
-      });
+      addToast({ title: "No active device selected", color: "warning" });
       return;
     }
 
     const numericDeviceId = activeDevice.deviceId;
     const token = getToken();
 
+    // Packet/measurement sizes (hex chars)
+    const PACKET_HEX_LEN = 480; // 240 bytes per packet
+    const MEAS_HEX_LEN = 60; // 30 bytes per measurement
+    const MAX_PACKETS = 8; // read up to 8 packets (as before)
+    const MAX_READS_PER_PACKET = 200; // safety to avoid infinite wait
+
+    // Buffer for assembling packets from multiple short reads
+    let hexBuffer = "";
+
+    // Simple duplicate protection within one capture run
+    let lastPacketHex: string | null = null;
+    const processedTimestamps = new Set<number>();
+
     try {
-      const timestamp = Math.floor(Date.now() / 1000);
-
-      // Convert timestamp to 4-byte big-endian Uint8Array
-      const buffer = new Uint8Array([
-        (timestamp >> 24) & 0xff,
-        (timestamp >> 16) & 0xff,
-        (timestamp >> 8) & 0xff,
-        timestamp & 0xff,
+      // Kick off log read by writing current timestamp (big-endian)
+      const ts = Math.floor(Date.now() / 1000);
+      const initBuf = new Uint8Array([
+        (ts >> 24) & 0xff,
+        (ts >> 16) & 0xff,
+        (ts >> 8) & 0xff,
+        ts & 0xff,
       ]);
-
-      // Write timestamp to initiate log read
-      await char.writeValue(buffer);
+      await char.writeValue(initBuf);
       console.log(
         "📝 Sent timestamp to log char (big-endian hex):",
-        Array.from(buffer)
+        Array.from(initBuf)
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("")
       );
 
-      // Read and discard the initial acknowledgment response (expected 4 bytes)
+      // Optional: try reading an ACK (often a few bytes)
       try {
-        const ackValue = await char.readValue();
+        const ackVal = await char.readValue();
         let ackHex = "";
-        for (let i = 0; i < ackValue.byteLength; i++) {
-          ackHex += ackValue.getUint8(i).toString(16).padStart(2, "0");
+        for (let i = 0; i < ackVal.byteLength; i++) {
+          ackHex += ackVal.getUint8(i).toString(16).padStart(2, "0");
         }
         console.log(`📜 Acknowledgment response (hex): ${ackHex}`);
       } catch (err) {
         console.warn("⚠️ No acknowledgment response received:", err);
       }
 
-      // Read up to 8 packets
       let packetCount = 0;
-      const maxPackets = 8;
 
-      while (packetCount < maxPackets) {
-        try {
+      while (packetCount < MAX_PACKETS) {
+        // Assemble exactly one full packet into hexBuffer
+        let readsThisPacket = 0;
+
+        while (
+          hexBuffer.length < PACKET_HEX_LEN &&
+          readsThisPacket < MAX_READS_PER_PACKET
+        ) {
           const value = await char.readValue();
-          let hexString = "";
+          let hexPart = "";
           for (let i = 0; i < value.byteLength; i++) {
-            hexString += value.getUint8(i).toString(16).padStart(2, "0");
+            hexPart += value.getUint8(i).toString(16).padStart(2, "0");
           }
-          console.log(`📜 Log packet ${packetCount + 1} (hex):`, hexString);
 
-          // ✅ Check if packet is all zeros (indicating no more data)
-          if (/^0+$/.test(hexString)) {
-            console.log(`🛑 Packet ${packetCount + 1} is all zeros, stopping`);
-            addToast({ title: "All packets collected", color: "success" });
-            if (onComplete) onComplete(); // 🔥 notify UI
+          // Many devices send short 4-byte ACK frames repeatedly; ignore them when buffer is empty
+          if (hexBuffer.length === 0 && hexPart.length === 8) {
+            console.log(
+              `ℹ️ Short ACK-like frame (${hexPart.length} hex chars) ignored before packet assembly`
+            );
+            readsThisPacket++;
+            continue;
+          }
+
+          // Append any non-empty fragment towards the full packet
+          if (hexPart.length > 0) {
+            hexBuffer += hexPart;
+            console.log(
+              `📜 Read fragment length=${hexPart.length}, buffer now=${hexBuffer.length}`
+            );
+          }
+
+          // If buffer has grown unusually large (e.g., multiple packets queued), stop inner loop
+          if (hexBuffer.length >= PACKET_HEX_LEN) {
             break;
           }
 
-          // Skip short responses (e.g., incomplete data)
-          if (hexString.length < 480) {
-            console.warn(
-              `⚠️ Short response (length ${hexString.length}) for packet ${
-                packetCount + 1
-              }, skipping`
+          readsThisPacket++;
+        }
+
+        // If we still don't have a full packet, stop to avoid infinite loops
+        if (hexBuffer.length < PACKET_HEX_LEN) {
+          console.warn(
+            `⚠️ Timed out waiting for full packet: bufferLen=${hexBuffer.length}, reads=${readsThisPacket}`
+          );
+          break;
+        }
+
+        // Process as many full packets as are currently in the buffer (usually 1)
+        while (
+          hexBuffer.length >= PACKET_HEX_LEN &&
+          packetCount < MAX_PACKETS
+        ) {
+          const fullPacketHex = hexBuffer.slice(0, PACKET_HEX_LEN);
+          hexBuffer = hexBuffer.slice(PACKET_HEX_LEN);
+
+          // End-of-logs sentinel: full zeros packet
+          if (/^0+$/.test(fullPacketHex)) {
+            console.log(`🛑 Packet ${packetCount + 1} is all zeros, stopping`);
+            addToast({ title: "All packets collected", color: "success" });
+            if (onComplete) onComplete();
+            // Clear buffer and end outer loop
+            hexBuffer = "";
+            packetCount = MAX_PACKETS;
+            break;
+          }
+
+          // Skip duplicates (device may repeat the same packet multiple times)
+          if (lastPacketHex && lastPacketHex === fullPacketHex) {
+            console.log(
+              `↩️ Duplicate packet ${packetCount + 1} detected, skipping re-insert`
             );
             packetCount++;
             continue;
           }
+          lastPacketHex = fullPacketHex;
 
-          // Each packet is 240 bytes (480 hex chars), up to 8 measurements
+          console.log(
+            `📦 Full packet ${packetCount + 1} assembled (hex length=${fullPacketHex.length})`
+          );
+
+          // Split into 8 measurement slots of 60 hex chars each
           const measurements: string[] = [];
           for (let i = 0; i < 8; i++) {
-            const start = i * 60;
-            const measurementHex = hexString.slice(start, start + 60);
+            const start = i * MEAS_HEX_LEN;
+            const measurementHex = fullPacketHex.slice(
+              start,
+              start + MEAS_HEX_LEN
+            );
             measurements.push(measurementHex);
           }
 
-          // Process each measurement
+          // Process only valid slots (timestamp != 00000000 and not all zeros)
+          let validReadingsCount = 0;
           for (let i = 0; i < measurements.length; i++) {
             const measurementHex = measurements[i];
+
+            // Quick empty checks
+            if (!measurementHex || measurementHex.length < MEAS_HEX_LEN)
+              continue;
+            if (/^0+$/.test(measurementHex)) continue;
+
             const tsHex = measurementHex.slice(0, 8);
             if (tsHex === "00000000") {
               console.log(
-                `📜 Skipping invalid measurement ${i + 1} in packet ${
-                  packetCount + 1
-                } (timestamp 0)`
+                `📜 Skipping empty measurement ${i + 1} in packet ${packetCount + 1} (timestamp 0)`
               );
               continue;
             }
 
+            // Parse timestamp first and de-duplicate already-seen timestamps in this run
             const unixTimestamp = parseTimestampHex(measurementHex);
+            if (processedTimestamps.has(unixTimestamp)) {
+              console.log(
+                `🧯 Duplicate timestamp ${unixTimestamp} in packet ${packetCount + 1}, skipping`
+              );
+              continue;
+            }
+            processedTimestamps.add(unixTimestamp);
+
+            // Parse the rest
             const batteryVoltage = parseBatteryVoltageHex(measurementHex);
             const temperature = parseTemperatureHex(measurementHex);
             const accel = parseAccelerometerHex(measurementHex);
             const frequencies = parseFrequencyHex(measurementHex);
             const amplitudes = parseAmplitudeHex(measurementHex);
 
-            console.log(
-              `📤 Sending measurement ${i + 1} from packet ${
-                packetCount + 1
-              } to backend:`,
-              {
-                deviceId: numericDeviceId,
-                timestamp: unixTimestamp,
-                voltage: batteryVoltage,
-                temperature,
-                accel,
-                frequencies,
-                amplitudes,
-              }
-            );
-
-            // --- send to backend ---
+            // Send voltage
             if (!isNaN(batteryVoltage)) {
               await fetch(`${API_BASE_URL}/api/voltage`, {
                 method: "POST",
@@ -554,6 +611,7 @@ export const BluetoothSensorProvider = ({
               });
             }
 
+            // Send temperature
             if (!isNaN(temperature)) {
               await fetch(`${API_BASE_URL}/api/temperature`, {
                 method: "POST",
@@ -569,6 +627,7 @@ export const BluetoothSensorProvider = ({
               });
             }
 
+            // Send accelerometer
             if (!isNaN(accel.x) && !isNaN(accel.y) && !isNaN(accel.z)) {
               await fetch(`${API_BASE_URL}/api/accelerometer`, {
                 method: "POST",
@@ -586,6 +645,7 @@ export const BluetoothSensorProvider = ({
               });
             }
 
+            // Send frequencies
             if (
               !isNaN(frequencies.freq1) &&
               !isNaN(frequencies.freq2) &&
@@ -609,6 +669,7 @@ export const BluetoothSensorProvider = ({
               });
             }
 
+            // Send amplitudes
             if (
               !isNaN(amplitudes.ampl1) &&
               !isNaN(amplitudes.ampl2) &&
@@ -631,17 +692,19 @@ export const BluetoothSensorProvider = ({
                 }),
               });
             }
+
+            validReadingsCount++;
           }
 
           addToast({
-            title: `Packet ${packetCount + 1} arrived successfully`,
+            title: `Packet ${packetCount + 1}: ${validReadingsCount} valid readings`,
             color: "success",
           });
+          console.log(
+            `✅ ${validReadingsCount} valid readings processed from packet ${packetCount + 1}`
+          );
+
           packetCount++;
-        } catch (err) {
-          console.error(`Failed to read packet ${packetCount + 1}:`, err);
-          packetCount++;
-          break;
         }
       }
 
