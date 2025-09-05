@@ -425,21 +425,19 @@ export const BluetoothSensorProvider = ({
     const numericDeviceId = activeDevice.deviceId;
     const token = getToken();
 
-    // Packet/measurement sizes (hex chars)
-    const PACKET_HEX_LEN = 480; // 240 bytes per packet
-    const MEAS_HEX_LEN = 60; // 30 bytes per measurement
-    const MAX_PACKETS = 8; // read up to 8 packets (as before)
-    const MAX_READS_PER_PACKET = 200; // safety to avoid infinite wait
+    // Packet and measurement sizes in hex chars
+    const PACKET_HEX_LEN = 480; // 240 bytes * 2 hex chars
+    const MEAS_HEX_LEN = 60; // 30 bytes per measurement slot
+    const MAX_PACKETS = 8;
+    const MAX_READS_PER_PACKET = 200;
 
-    // Buffer for assembling packets from multiple short reads
+    // Buffer to accumulate partial reads
     let hexBuffer = "";
-
-    // Simple duplicate protection within one capture run
     let lastPacketHex: string | null = null;
     const processedTimestamps = new Set<number>();
 
     try {
-      // Kick off log read by writing current timestamp (big-endian)
+      // Start reading logs by writing current time (big-endian)
       const ts = Math.floor(Date.now() / 1000);
       const initBuf = new Uint8Array([
         (ts >> 24) & 0xff,
@@ -455,7 +453,7 @@ export const BluetoothSensorProvider = ({
           .join("")
       );
 
-      // Optional: try reading an ACK (often a few bytes)
+      // Optionally read the acknowledgment response
       try {
         const ackVal = await char.readValue();
         let ackHex = "";
@@ -470,9 +468,9 @@ export const BluetoothSensorProvider = ({
       let packetCount = 0;
 
       while (packetCount < MAX_PACKETS) {
-        // Assemble exactly one full packet into hexBuffer
         let readsThisPacket = 0;
 
+        // Assemble one full packet in the buffer
         while (
           hexBuffer.length < PACKET_HEX_LEN &&
           readsThisPacket < MAX_READS_PER_PACKET
@@ -483,40 +481,35 @@ export const BluetoothSensorProvider = ({
             hexPart += value.getUint8(i).toString(16).padStart(2, "0");
           }
 
-          // Many devices send short 4-byte ACK frames repeatedly; ignore them when buffer is empty
+          console.log(
+            `📡 Raw BLE data fragment (length=${value.byteLength} bytes):`,
+            hexPart
+          );
+
+          // Ignore small ACK-like frames when buffer empty
           if (hexBuffer.length === 0 && hexPart.length === 8) {
             console.log(
-              `ℹ️ Short ACK-like frame (${hexPart.length} hex chars) ignored before packet assembly`
+              `ℹ️ Short ACK-like frame ignored before packet assembly:`,
+              hexPart
             );
             readsThisPacket++;
             continue;
           }
 
-          // Append any non-empty fragment towards the full packet
           if (hexPart.length > 0) {
             hexBuffer += hexPart;
-            console.log(
-              `📜 Read fragment length=${hexPart.length}, buffer now=${hexBuffer.length}`
-            );
           }
-
-          // If buffer has grown unusually large (e.g., multiple packets queued), stop inner loop
-          if (hexBuffer.length >= PACKET_HEX_LEN) {
-            break;
-          }
-
           readsThisPacket++;
         }
 
-        // If we still don't have a full packet, stop to avoid infinite loops
         if (hexBuffer.length < PACKET_HEX_LEN) {
           console.warn(
-            `⚠️ Timed out waiting for full packet: bufferLen=${hexBuffer.length}, reads=${readsThisPacket}`
+            `⚠️ Timed out waiting for full packet: buffer length=${hexBuffer.length}, reads=${readsThisPacket}`
           );
           break;
         }
 
-        // Process as many full packets as are currently in the buffer (usually 1)
+        // Process as many complete packets as are buffered
         while (
           hexBuffer.length >= PACKET_HEX_LEN &&
           packetCount < MAX_PACKETS
@@ -524,48 +517,38 @@ export const BluetoothSensorProvider = ({
           const fullPacketHex = hexBuffer.slice(0, PACKET_HEX_LEN);
           hexBuffer = hexBuffer.slice(PACKET_HEX_LEN);
 
-          // End-of-logs sentinel: full zeros packet
           if (/^0+$/.test(fullPacketHex)) {
             console.log(`🛑 Packet ${packetCount + 1} is all zeros, stopping`);
             addToast({ title: "All packets collected", color: "success" });
             if (onComplete) onComplete();
-            // Clear buffer and end outer loop
             hexBuffer = "";
-            packetCount = MAX_PACKETS;
+            packetCount = MAX_PACKETS; // exit outer loop
             break;
           }
 
-          // Skip duplicates (device may repeat the same packet multiple times)
           if (lastPacketHex && lastPacketHex === fullPacketHex) {
             console.log(
-              `↩️ Duplicate packet ${packetCount + 1} detected, skipping re-insert`
+              `↩️ Duplicate packet ${packetCount + 1} detected, skipping`
             );
             packetCount++;
             continue;
           }
           lastPacketHex = fullPacketHex;
-
           console.log(
             `📦 Full packet ${packetCount + 1} assembled (hex length=${fullPacketHex.length})`
           );
 
-          // Split into 8 measurement slots of 60 hex chars each
           const measurements: string[] = [];
           for (let i = 0; i < 8; i++) {
             const start = i * MEAS_HEX_LEN;
-            const measurementHex = fullPacketHex.slice(
-              start,
-              start + MEAS_HEX_LEN
-            );
-            measurements.push(measurementHex);
+            measurements.push(fullPacketHex.slice(start, start + MEAS_HEX_LEN));
           }
 
-          // Process only valid slots (timestamp != 00000000 and not all zeros)
           let validReadingsCount = 0;
+
           for (let i = 0; i < measurements.length; i++) {
             const measurementHex = measurements[i];
 
-            // Quick empty checks
             if (!measurementHex || measurementHex.length < MEAS_HEX_LEN)
               continue;
             if (/^0+$/.test(measurementHex)) continue;
@@ -578,7 +561,6 @@ export const BluetoothSensorProvider = ({
               continue;
             }
 
-            // Parse timestamp first and de-duplicate already-seen timestamps in this run
             const unixTimestamp = parseTimestampHex(measurementHex);
             if (processedTimestamps.has(unixTimestamp)) {
               console.log(
@@ -588,14 +570,12 @@ export const BluetoothSensorProvider = ({
             }
             processedTimestamps.add(unixTimestamp);
 
-            // Parse the rest
             const batteryVoltage = parseBatteryVoltageHex(measurementHex);
             const temperature = parseTemperatureHex(measurementHex);
             const accel = parseAccelerometerHex(measurementHex);
             const frequencies = parseFrequencyHex(measurementHex);
             const amplitudes = parseAmplitudeHex(measurementHex);
 
-            // Send voltage
             if (!isNaN(batteryVoltage)) {
               await fetch(`${API_BASE_URL}/api/voltage`, {
                 method: "POST",
@@ -610,8 +590,6 @@ export const BluetoothSensorProvider = ({
                 }),
               });
             }
-
-            // Send temperature
             if (!isNaN(temperature)) {
               await fetch(`${API_BASE_URL}/api/temperature`, {
                 method: "POST",
@@ -626,8 +604,6 @@ export const BluetoothSensorProvider = ({
                 }),
               });
             }
-
-            // Send accelerometer
             if (!isNaN(accel.x) && !isNaN(accel.y) && !isNaN(accel.z)) {
               await fetch(`${API_BASE_URL}/api/accelerometer`, {
                 method: "POST",
@@ -644,8 +620,6 @@ export const BluetoothSensorProvider = ({
                 }),
               });
             }
-
-            // Send frequencies
             if (
               !isNaN(frequencies.freq1) &&
               !isNaN(frequencies.freq2) &&
@@ -668,8 +642,6 @@ export const BluetoothSensorProvider = ({
                 }),
               });
             }
-
-            // Send amplitudes
             if (
               !isNaN(amplitudes.ampl1) &&
               !isNaN(amplitudes.ampl2) &&
