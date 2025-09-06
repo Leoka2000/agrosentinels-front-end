@@ -54,7 +54,11 @@ interface BluetoothSensorContextValue {
   writeSleepOn: (sleepControlCharUuid: string) => Promise<void>;
   writeSleepOff: (sleepControlCharUuid: string) => Promise<void>;
   startStreaming: () => Promise<void>;
-  getHistoricalLogs: (logReadCharUuid: string) => Promise<void>;
+  getHistoricalLogs: (
+    logReadCharUuid: string,
+    onComplete?: () => void,
+    onPacketReceived?: (hexString: string) => void
+  ) => Promise<void>;
 }
 
 const BluetoothSensorContext =
@@ -77,6 +81,10 @@ export const BluetoothSensorProvider = ({
   const [characteristics, setCharacteristics] = useState<
     Record<string, BluetoothRemoteGATTCharacteristic>
   >({});
+  const [latestParsedMessage, setLatestParsedMessage] = useState<string | null>(
+    null
+  );
+
   const streamingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -407,10 +415,10 @@ export const BluetoothSensorProvider = ({
   };
 
   // ---------------- get logs ----------------
-
   const getHistoricalLogs = async (
     logReadCharUuid: string,
-    onComplete?: () => void
+    onComplete?: () => void,
+    onPacketReceived?: (hexString: string) => void
   ) => {
     const char = characteristics[logReadCharUuid];
     if (!char) {
@@ -425,19 +433,16 @@ export const BluetoothSensorProvider = ({
     const numericDeviceId = activeDevice.deviceId;
     const token = getToken();
 
-    // Packet and measurement sizes in hex chars
     const PACKET_HEX_LEN = 480; // 240 bytes * 2 hex chars
     const MEAS_HEX_LEN = 60; // 30 bytes per measurement slot
     const MAX_PACKETS = 8;
     const MAX_READS_PER_PACKET = 200;
 
-    // Buffer to accumulate partial reads
     let hexBuffer = "";
     let lastPacketHex: string | null = null;
     const processedTimestamps = new Set<number>();
 
     try {
-      // Start reading logs by writing current time (big-endian)
       const ts = Math.floor(Date.now() / 1000);
       const initBuf = new Uint8Array([
         (ts >> 24) & 0xff,
@@ -453,7 +458,6 @@ export const BluetoothSensorProvider = ({
           .join("")
       );
 
-      // Optionally read the acknowledgment response
       try {
         const ackVal = await char.readValue();
         let ackHex = "";
@@ -470,7 +474,6 @@ export const BluetoothSensorProvider = ({
       while (packetCount < MAX_PACKETS) {
         let readsThisPacket = 0;
 
-        // Assemble one full packet in the buffer
         while (
           hexBuffer.length < PACKET_HEX_LEN &&
           readsThisPacket < MAX_READS_PER_PACKET
@@ -486,7 +489,6 @@ export const BluetoothSensorProvider = ({
             hexPart
           );
 
-          // Ignore small ACK-like frames when buffer empty
           if (hexBuffer.length === 0 && hexPart.length === 8) {
             console.log(
               `ℹ️ Short ACK-like frame ignored before packet assembly:`,
@@ -509,7 +511,6 @@ export const BluetoothSensorProvider = ({
           break;
         }
 
-        // Process as many complete packets as are buffered
         while (
           hexBuffer.length >= PACKET_HEX_LEN &&
           packetCount < MAX_PACKETS
@@ -522,7 +523,7 @@ export const BluetoothSensorProvider = ({
             addToast({ title: "All packets collected", color: "success" });
             if (onComplete) onComplete();
             hexBuffer = "";
-            packetCount = MAX_PACKETS; // exit outer loop
+            packetCount = MAX_PACKETS;
             break;
           }
 
@@ -538,6 +539,10 @@ export const BluetoothSensorProvider = ({
             `📦 Full packet ${packetCount + 1} assembled (hex length=${fullPacketHex.length})`
           );
 
+          if (onPacketReceived) {
+            onPacketReceived(fullPacketHex);
+          }
+
           const measurements: string[] = [];
           for (let i = 0; i < 8; i++) {
             const start = i * MEAS_HEX_LEN;
@@ -545,6 +550,8 @@ export const BluetoothSensorProvider = ({
           }
 
           let validReadingsCount = 0;
+          // Compose a multi-line formatted message for the full packet
+          let packetFormattedMessages: string[] = [];
 
           for (let i = 0; i < measurements.length; i++) {
             const measurementHex = measurements[i];
@@ -575,6 +582,11 @@ export const BluetoothSensorProvider = ({
             const accel = parseAccelerometerHex(measurementHex);
             const frequencies = parseFrequencyHex(measurementHex);
             const amplitudes = parseAmplitudeHex(measurementHex);
+
+            // Append formatted message for this measurement
+            packetFormattedMessages.push(
+              formatParsedMeasurementMessage(measurementHex)
+            );
 
             if (!isNaN(batteryVoltage)) {
               await fetch(`${API_BASE_URL}/api/voltage`, {
@@ -664,9 +676,11 @@ export const BluetoothSensorProvider = ({
                 }),
               });
             }
-
             validReadingsCount++;
           }
+
+          // Update the latest parsed message state with all measurements formatted
+          setLatestParsedMessage(packetFormattedMessages.join("\n\n"));
 
           addToast({
             title: `Packet ${packetCount + 1}: ${validReadingsCount} valid readings`,
@@ -675,12 +689,10 @@ export const BluetoothSensorProvider = ({
           console.log(
             `✅ ${validReadingsCount} valid readings processed from packet ${packetCount + 1}`
           );
-
           packetCount++;
         }
       }
 
-      // Update device time after reading logs
       if (activeDevice?.setTimeCharUuid) {
         await writeSetTime(activeDevice.setTimeCharUuid);
       }
@@ -689,6 +701,26 @@ export const BluetoothSensorProvider = ({
       addToast({ title: "Failed to start log capture", color: "danger" });
     }
   };
+
+  function formatParsedMeasurementMessage(hexString: string): string {
+    const unixTimestamp = parseTimestampHex(hexString);
+    const batteryVoltage = parseBatteryVoltageHex(hexString);
+    const temperature = parseTemperatureHex(hexString);
+    const accel = parseAccelerometerHex(hexString);
+    const frequencies = parseFrequencyHex(hexString);
+    const amplitudes = parseAmplitudeHex(hexString);
+
+    const date = new Date(unixTimestamp * 1000).toLocaleString();
+
+    return [
+      `📅 Timestamp: ${date}`,
+      `🌡️ Temp raw=0x${hexString.slice(8, 12)} -> ${temperature.toFixed(1)} °C`,
+      `🔋 Battery voltage: ${batteryVoltage.toFixed(3)} V`,
+      `📏 Accelerometer values -> X: ${accel.x}, Y: ${accel.y}, Z: ${accel.z}`,
+      `🎵 Frequencies -> F1: ${frequencies.freq1} Hz, F2: ${frequencies.freq2} Hz, F3: ${frequencies.freq3} Hz, F4: ${frequencies.freq4} Hz`,
+      `📈 Amplitudes -> A1: ${amplitudes.ampl1} mV, A2: ${amplitudes.ampl2} mV, A3: ${amplitudes.ampl3} mV, A4: ${amplitudes.ampl4} mV`,
+    ].join("\n");
+  }
 
   return (
     <BluetoothSensorContext.Provider
@@ -706,6 +738,9 @@ export const BluetoothSensorProvider = ({
         writeSleepOff,
         startStreaming,
         getHistoricalLogs,
+        latestParsedMessage,
+
+        
       }}
     >
       {children}

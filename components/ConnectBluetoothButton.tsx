@@ -23,6 +23,7 @@ import {
 } from "@heroui/modal";
 import { Progress } from "@heroui/progress";
 import { Alert } from "@heroui/alert";
+import { Card } from "@heroui/card";
 
 // Generate random increments summing to 100 for 60 steps
 const generateRandomIncrements = (steps: number = 60): number[] => {
@@ -45,6 +46,7 @@ const BluetoothConnectButton: React.FC = () => {
     writeSleepOff,
     startStreaming,
     getHistoricalLogs,
+    latestParsedMessage,
   } = useBluetoothSensor();
 
   const [isScanning, setIsScanning] = useState(false);
@@ -54,6 +56,7 @@ const BluetoothConnectButton: React.FC = () => {
   const [isLogCaptureComplete, setIsLogCaptureComplete] = useState(false);
   const [increments, setIncrements] = useState(generateRandomIncrements());
   const [incrementIndex, setIncrementIndex] = useState(0);
+  const [latestPacket, setLatestPacket] = useState<string | null>(null);
 
   // Debug: log the active device
   useEffect(() => {
@@ -136,7 +139,7 @@ const BluetoothConnectButton: React.FC = () => {
     setProgress(0);
     setPacketCount(0);
     setIsLogCaptureComplete(false);
-
+    setLatestPacket(null);
     setIncrementIndex(0);
     setIncrements(generateRandomIncrements());
     onClose();
@@ -147,10 +150,20 @@ const BluetoothConnectButton: React.FC = () => {
     if (isOpen && !isLogCaptureComplete && activeDevice?.logReadCharUuid) {
       const fetchPacket = async () => {
         try {
-          await getHistoricalLogs(activeDevice.logReadCharUuid, () => {
-            console.log("✅ Auto getHistoricalLogs completed");
-            setIsLogCaptureComplete(true);
-          });
+          await getHistoricalLogs(
+            activeDevice.logReadCharUuid,
+            () => {
+              console.log("✅ Auto getHistoricalLogs completed");
+              setIsLogCaptureComplete(true);
+            },
+            (hexString) => {
+              console.log(
+                "📥 Packet received in BluetoothConnectButton:",
+                hexString
+              );
+              setLatestPacket(hexString);
+            }
+          );
           setProgress(100); // Jump to 100% on packet fetch
           setPacketCount((prev) => prev + 1);
           setTimeout(resetProgressCycle, 100);
@@ -196,8 +209,6 @@ const BluetoothConnectButton: React.FC = () => {
             </Button>
           </Tooltip>
 
-         
-
           <Tooltip content="Start streaming data">
             <Button
               onPress={() => startStreaming()}
@@ -222,7 +233,7 @@ const BluetoothConnectButton: React.FC = () => {
                 isDisabled={isScanning}
                 startContent={
                   isScanning ? (
-                    <Spinner size="sm"/>
+                    <Spinner size="sm" />
                   ) : (
                     <Bluetooth className="h-4 w-4" />
                   )
@@ -232,12 +243,11 @@ const BluetoothConnectButton: React.FC = () => {
               </Button>
             </Tooltip>
           ) : (
-            <Tooltip content="Disconnect  from device">
+            <Tooltip content="Disconnect from device">
               <Button
                 onPress={disconnectBluetooth}
                 color="danger"
                 variant="shadow"
-              
                 startContent={<BluetoothOff className="h-4 w-4" />}
               >
                 Disconnect
@@ -277,7 +287,18 @@ const BluetoothConnectButton: React.FC = () => {
                     title="All packets collected successfully!"
                   />
                 ) : (
-                  <p>Waiting for packet {packetCount + 1}...</p>
+                  <>
+                    <p>Waiting for packet {packetCount + 1}...</p>
+                    {latestParsedMessage && (
+                      <Card className="p-3">
+                        <pre className="text-sm font-mono whitespace-pre-wrap break-words">
+                          Packet {packetCount + 1} Data:
+                          {"\n\n"}
+                          {latestParsedMessage}
+                        </pre>
+                      </Card>
+                    )}
+                  </>
                 )}
               </ModalBody>
               {isLogCaptureComplete && (
