@@ -60,7 +60,10 @@ export const TemperatureChart = ({ status }: TemperatureChartProps) => {
       try {
         const token = await getToken();
         const res = await fetch(`${API_BASE_URL}/api/device/active`, {
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         });
         if (!res.ok) throw new Error("Failed to fetch active device");
         const body = await res.json();
@@ -82,7 +85,10 @@ export const TemperatureChart = ({ status }: TemperatureChartProps) => {
         const res = await fetch(
           `${API_BASE_URL}/api/temperature/history?range=${range}&deviceId=${deviceId}`,
           {
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
           }
         );
         if (!res.ok) throw new Error("Failed to fetch temperature history");
@@ -110,13 +116,15 @@ export const TemperatureChart = ({ status }: TemperatureChartProps) => {
   }, [range, deviceId, API_BASE_URL]);
 
   return (
-    <Card className="py-4 sm:py-0">
+    <Card className="p-4">
       <CardBody className="flex z-10 flex-col items-stretch !p-0 sm:flex-row">
         <div className="flex flex-1 flex-col justify-center gap-1 py-4 mb-4 px-6 pb-3 sm:pb-0">
           <h1 className="2xl font-bold">Device Temperature</h1>
           <div className="flex items-center justify-between">
             <p className="leading-4 text-sm py-1">
-              <span className={`text-sm font-semibold ${statusColorClass}`}>{status}</span>
+              <span className={`text-sm font-semibold ${statusColorClass}`}>
+                {status}
+              </span>
             </p>
           </div>
         </div>
@@ -152,12 +160,23 @@ export const TemperatureChart = ({ status }: TemperatureChartProps) => {
         </div>
       </CardBody>
 
-      <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
+      <ChartContainer
+        config={chartConfig}
+        className="aspect-auto h-[250px] w-full"
+      >
         <AreaChart data={data} margin={{ left: 12, right: 12 }}>
           <defs>
             <linearGradient id="fillTemperature" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-temperature)" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="var(--color-temperature)" stopOpacity={0.1} />
+              <stop
+                offset="5%"
+                stopColor="var(--color-temperature)"
+                stopOpacity={0.8}
+              />
+              <stop
+                offset="95%"
+                stopColor="var(--color-temperature)"
+                stopOpacity={0.1}
+              />
             </linearGradient>
           </defs>
           <CartesianGrid vertical={false} />

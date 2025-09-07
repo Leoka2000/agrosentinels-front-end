@@ -31,6 +31,7 @@ interface ActiveDevice {
   setTimeCharUuid: string;
   sleepControlCharUuid: string;
   registeredDevice: boolean;
+  lastReceivedTimestamp?: number;
 }
 
 interface BluetoothDevice {
@@ -199,15 +200,28 @@ export const BluetoothSensorProvider = ({
       });
       return;
     }
-    // Get current Unix timestamp (seconds since 1970)
-    const timestamp = Math.floor(Date.now() / 1000);
-    // Write timestamp as 4-byte big-endian
+
+    if (!activeDevice) return;
+
+    // Use lastReceivedTimestamp if available, otherwise fallback to current time
+    const unixTimestamp =
+      activeDevice.lastReceivedTimestamp ?? Math.floor(Date.now() / 1000);
+
+    // Convert to 4-byte big-endian
     const buffer = new ArrayBuffer(4);
     const view = new DataView(buffer);
-    view.setUint32(0, timestamp, false); // false = big-endian
+    view.setUint32(0, unixTimestamp, false); // false = big-endian
+
     await char.writeValue(buffer);
     addToast({ title: "Timestamp sent (big-endian)", color: "success" });
-    console.log("⏰ Timestamp sent (big-endian):", timestamp.toString(16));
+    console.log(
+      "⏰ Timestamp sent (big-endian):",
+      unixTimestamp,
+      "hex=",
+      Array.from(new Uint8Array(buffer))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("")
+    );
   };
 
   // ---------------- Sleep Control ----------------
@@ -266,45 +280,48 @@ export const BluetoothSensorProvider = ({
             }
             console.log("📡 Measurement received (hex):", hexString);
 
-            if (!activeDevice) return;
             const numericDeviceId = activeDevice.deviceId;
+            const token = getToken();
 
-            // Parse all values
+            // Parse timestamp
             const unixTimestamp = parseTimestampHex(hexString);
+
+            // ---------------- Update backend last-timestamp ----------------
+            await fetch(
+              `${API_BASE_URL}/api/device/${numericDeviceId}/last-timestamp?timestamp=${unixTimestamp}`,
+              {
+                method: "PATCH",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            // Update locally
+            setActiveDevice((prev) =>
+              prev ? { ...prev, lastReceivedTimestamp: unixTimestamp } : prev
+            );
+
+            // ---------------- Write timestamp back to device ----------------
+            const buffer = new ArrayBuffer(4);
+            const view = new DataView(buffer);
+            view.setUint32(0, unixTimestamp, false); // big-endian
+            await setTimeChar.writeValue(buffer);
+            console.log(
+              "⏰ Write timestamp to device (hex):",
+              unixTimestamp,
+              Array.from(new Uint8Array(buffer))
+                .map((b) => b.toString(16).padStart(2, "0"))
+                .join("")
+            );
+
+            // ---------------- Parse other measurements ----------------
             const batteryVoltage = parseBatteryVoltageHex(hexString);
             const temperature = parseTemperatureHex(hexString);
             const accel = parseAccelerometerHex(hexString);
             const frequencies = parseFrequencyHex(hexString);
             const amplitudes = parseAmplitudeHex(hexString);
-            const token = getToken();
 
-            // Log all values being sent to backend
-            console.log("📤 Sending to backend:", {
-              deviceId: numericDeviceId,
-              timestamp: unixTimestamp,
-              voltage: !isNaN(batteryVoltage) ? batteryVoltage : "invalid",
-              temperature: !isNaN(temperature) ? temperature : "invalid",
-              accelerometer:
-                !isNaN(accel.x) && !isNaN(accel.y) && !isNaN(accel.z)
-                  ? accel
-                  : "invalid",
-              frequencies:
-                !isNaN(frequencies.freq1) &&
-                !isNaN(frequencies.freq2) &&
-                !isNaN(frequencies.freq3) &&
-                !isNaN(frequencies.freq4)
-                  ? frequencies
-                  : "invalid",
-              amplitudes:
-                !isNaN(amplitudes.ampl1) &&
-                !isNaN(amplitudes.ampl2) &&
-                !isNaN(amplitudes.ampl3) &&
-                !isNaN(amplitudes.ampl4)
-                  ? amplitudes
-                  : "invalid",
-            });
-
-            // Send voltage
+            // Send other sensor data to backend
             if (!isNaN(batteryVoltage)) {
               await fetch(`${API_BASE_URL}/api/voltage`, {
                 method: "POST",
@@ -320,7 +337,6 @@ export const BluetoothSensorProvider = ({
               });
             }
 
-            // Send temperature
             if (!isNaN(temperature)) {
               await fetch(`${API_BASE_URL}/api/temperature`, {
                 method: "POST",
@@ -336,7 +352,6 @@ export const BluetoothSensorProvider = ({
               });
             }
 
-            // Send accelerometer
             if (!isNaN(accel.x) && !isNaN(accel.y) && !isNaN(accel.z)) {
               await fetch(`${API_BASE_URL}/api/accelerometer`, {
                 method: "POST",
@@ -354,7 +369,6 @@ export const BluetoothSensorProvider = ({
               });
             }
 
-            // Send frequencies
             if (
               !isNaN(frequencies.freq1) &&
               !isNaN(frequencies.freq2) &&
@@ -378,7 +392,6 @@ export const BluetoothSensorProvider = ({
               });
             }
 
-            // Send amplitudes
             if (
               !isNaN(amplitudes.ampl1) &&
               !isNaN(amplitudes.ampl2) &&
@@ -443,6 +456,7 @@ export const BluetoothSensorProvider = ({
     const processedTimestamps = new Set<number>();
 
     try {
+      // Send init timestamp
       const ts = Math.floor(Date.now() / 1000);
       const initBuf = new Uint8Array([
         (ts >> 24) & 0xff,
@@ -490,17 +504,12 @@ export const BluetoothSensorProvider = ({
           );
 
           if (hexBuffer.length === 0 && hexPart.length === 8) {
-            console.log(
-              `ℹ️ Short ACK-like frame ignored before packet assembly:`,
-              hexPart
-            );
+            console.log("Short ACK-like frame ignored:", hexPart);
             readsThisPacket++;
             continue;
           }
 
-          if (hexPart.length > 0) {
-            hexBuffer += hexPart;
-          }
+          if (hexPart.length > 0) hexBuffer += hexPart;
           readsThisPacket++;
         }
 
@@ -518,31 +527,89 @@ export const BluetoothSensorProvider = ({
           const fullPacketHex = hexBuffer.slice(0, PACKET_HEX_LEN);
           hexBuffer = hexBuffer.slice(PACKET_HEX_LEN);
 
+          // ---------- All Zeros = End Historical, Start Patch Streaming ----------
           if (/^0+$/.test(fullPacketHex)) {
-            console.log(`🛑 Packet ${packetCount + 1} is all zeros, stopping`);
-            addToast({ title: "All packets collected", color: "success" });
-            if (onComplete) onComplete();
+            console.log(`🛑 Packet ${packetCount + 1} is all zeros.`);
+            console.log(
+              "🔄 Switching from getHistoricalLogs → startStreaming (patch mode)"
+            );
+
+            if (activeDevice?.measurementCharUuid) {
+              const measurementChar =
+                characteristics[activeDevice.measurementCharUuid];
+              const setTimeChar = characteristics[activeDevice.setTimeCharUuid];
+
+              if (measurementChar && setTimeChar) {
+                await measurementChar.startNotifications();
+
+                const handler = async (event: any) => {
+                  try {
+                    const value: DataView = event.target.value;
+                    let hexString = "";
+                    for (let i = 0; i < value.byteLength; i++) {
+                      hexString += value
+                        .getUint8(i)
+                        .toString(16)
+                        .padStart(2, "0");
+                    }
+                    console.log(
+                      "📡 One-time stream packet (for patch):",
+                      hexString
+                    );
+
+                    const unixTimestamp = parseTimestampHex(hexString);
+
+                    // Write timestamp back to device
+                    const buffer = new ArrayBuffer(4);
+                    const view = new DataView(buffer);
+                    view.setUint32(0, unixTimestamp, false);
+                    await setTimeChar.writeValue(buffer);
+
+                    console.log(
+                      "✅ Timestamp patched with stream packet:",
+                      unixTimestamp
+                    );
+
+                    // Cleanup after one cycle
+                    measurementChar.removeEventListener(
+                      "characteristicvaluechanged",
+                      handler
+                    );
+                    await measurementChar.stopNotifications();
+
+                    if (onComplete) onComplete();
+                  } catch (err) {
+                    console.error("❌ Error during patch streaming:", err);
+                  }
+                };
+
+                measurementChar.addEventListener(
+                  "characteristicvaluechanged",
+                  handler
+                );
+              }
+            }
+
             hexBuffer = "";
-            packetCount = MAX_PACKETS;
+            packetCount = MAX_PACKETS; // force exit
             break;
           }
 
+          // ---------- Duplicate Packet ----------
           if (lastPacketHex && lastPacketHex === fullPacketHex) {
-            console.log(
-              `↩️ Duplicate packet ${packetCount + 1} detected, skipping`
-            );
+            console.log(`↩️ Duplicate packet ${packetCount + 1}, skipping`);
             packetCount++;
             continue;
           }
           lastPacketHex = fullPacketHex;
+
           console.log(
             `📦 Full packet ${packetCount + 1} assembled (hex length=${fullPacketHex.length})`
           );
 
-          if (onPacketReceived) {
-            onPacketReceived(fullPacketHex);
-          }
+          if (onPacketReceived) onPacketReceived(fullPacketHex);
 
+          // ---------- Parse Measurements ----------
           const measurements: string[] = [];
           for (let i = 0; i < 8; i++) {
             const start = i * MEAS_HEX_LEN;
@@ -550,12 +617,10 @@ export const BluetoothSensorProvider = ({
           }
 
           let validReadingsCount = 0;
-          // Compose a multi-line formatted message for the full packet
           let packetFormattedMessages: string[] = [];
 
           for (let i = 0; i < measurements.length; i++) {
             const measurementHex = measurements[i];
-
             if (!measurementHex || measurementHex.length < MEAS_HEX_LEN)
               continue;
             if (/^0+$/.test(measurementHex)) continue;
@@ -563,16 +628,14 @@ export const BluetoothSensorProvider = ({
             const tsHex = measurementHex.slice(0, 8);
             if (tsHex === "00000000") {
               console.log(
-                `📜 Skipping empty measurement ${i + 1} in packet ${packetCount + 1} (timestamp 0)`
+                `📜 Skipping empty measurement ${i + 1} in packet ${packetCount + 1}`
               );
               continue;
             }
 
             const unixTimestamp = parseTimestampHex(measurementHex);
             if (processedTimestamps.has(unixTimestamp)) {
-              console.log(
-                `🧯 Duplicate timestamp ${unixTimestamp} in packet ${packetCount + 1}, skipping`
-              );
+              console.log(`🧯 Duplicate timestamp ${unixTimestamp}, skipping`);
               continue;
             }
             processedTimestamps.add(unixTimestamp);
@@ -583,11 +646,12 @@ export const BluetoothSensorProvider = ({
             const frequencies = parseFrequencyHex(measurementHex);
             const amplitudes = parseAmplitudeHex(measurementHex);
 
-            // Append formatted message for this measurement
+            // Format for UI
             packetFormattedMessages.push(
               formatParsedMeasurementMessage(measurementHex)
             );
 
+            // Push to backend APIs
             if (!isNaN(batteryVoltage)) {
               await fetch(`${API_BASE_URL}/api/voltage`, {
                 method: "POST",
@@ -625,19 +689,12 @@ export const BluetoothSensorProvider = ({
                 },
                 body: JSON.stringify({
                   deviceId: numericDeviceId,
-                  x: accel.x,
-                  y: accel.y,
-                  z: accel.z,
+                  ...accel,
                   timestamp: unixTimestamp,
                 }),
               });
             }
-            if (
-              !isNaN(frequencies.freq1) &&
-              !isNaN(frequencies.freq2) &&
-              !isNaN(frequencies.freq3) &&
-              !isNaN(frequencies.freq4)
-            ) {
+            if (!isNaN(frequencies.freq1)) {
               await fetch(`${API_BASE_URL}/api/frequency`, {
                 method: "POST",
                 headers: {
@@ -646,20 +703,12 @@ export const BluetoothSensorProvider = ({
                 },
                 body: JSON.stringify({
                   deviceId: numericDeviceId,
-                  freq1: frequencies.freq1,
-                  freq2: frequencies.freq2,
-                  freq3: frequencies.freq3,
-                  freq4: frequencies.freq4,
+                  ...frequencies,
                   timestamp: unixTimestamp,
                 }),
               });
             }
-            if (
-              !isNaN(amplitudes.ampl1) &&
-              !isNaN(amplitudes.ampl2) &&
-              !isNaN(amplitudes.ampl3) &&
-              !isNaN(amplitudes.ampl4)
-            ) {
+            if (!isNaN(amplitudes.ampl1)) {
               await fetch(`${API_BASE_URL}/api/amplitude`, {
                 method: "POST",
                 headers: {
@@ -668,20 +717,16 @@ export const BluetoothSensorProvider = ({
                 },
                 body: JSON.stringify({
                   deviceId: numericDeviceId,
-                  ampl1: amplitudes.ampl1,
-                  ampl2: amplitudes.ampl2,
-                  ampl3: amplitudes.ampl3,
-                  ampl4: amplitudes.ampl4,
+                  ...amplitudes,
                   timestamp: unixTimestamp,
                 }),
               });
             }
+
             validReadingsCount++;
           }
 
-          // Update the latest parsed message state with all measurements formatted
           setLatestParsedMessage(packetFormattedMessages.join("\n\n"));
-
           addToast({
             title: `Packet ${packetCount + 1}: ${validReadingsCount} valid readings`,
             color: "success",
@@ -691,10 +736,6 @@ export const BluetoothSensorProvider = ({
           );
           packetCount++;
         }
-      }
-
-      if (activeDevice?.setTimeCharUuid) {
-        await writeSetTime(activeDevice.setTimeCharUuid);
       }
     } catch (err) {
       console.error("Failed to start log capture:", err);
@@ -738,7 +779,7 @@ export const BluetoothSensorProvider = ({
         writeSleepOff,
         startStreaming,
         getHistoricalLogs,
-        latestParsedMessage, 
+        latestParsedMessage,
       }}
     >
       {children}

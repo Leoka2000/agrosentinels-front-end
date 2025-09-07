@@ -29,14 +29,14 @@ interface AccelerometerDataPoint {
   y: number;
   z: number;
   timestamp: string; // ISO string from backend
-  date?: string;     // formatted for chart axis
+  date?: string; // formatted for chart axis
 }
 
 // Chart colors for each axis
 const chartConfig = {
-  x: { label: "X Axis", color: "#f472b6" },      // pink
-  y: { label: "Y Axis", color: "#34d399" },      // green
-  z: { label: "Z Axis", color: "#60a5fa" },      // blue
+  x: { label: "X Axis", color: "#f472b6" }, // pink
+  y: { label: "Y Axis", color: "#34d399" }, // green
+  z: { label: "Z Axis", color: "#60a5fa" }, // blue
 } satisfies ChartConfig;
 
 const ranges = [
@@ -62,7 +62,10 @@ export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
       try {
         const token = await getToken();
         const res = await fetch(`${API_BASE_URL}/api/device/active`, {
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         });
         if (!res.ok) throw new Error("Failed to fetch active device");
         const body = await res.json();
@@ -84,7 +87,10 @@ export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
         const res = await fetch(
           `${API_BASE_URL}/api/accelerometer/history?range=${range}&deviceId=${deviceId}`,
           {
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
           }
         );
         if (!res.ok) throw new Error("Failed to fetch accelerometer history");
@@ -112,13 +118,15 @@ export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
   }, [range, deviceId, API_BASE_URL]);
 
   return (
-    <Card className="py-4 sm:py-0">
+    <Card className="p-4">
       <CardBody className="flex z-10 flex-col items-stretch !p-0 sm:flex-row">
         <div className="flex flex-1 flex-col justify-center gap-1 py-4 mb-4 px-6 pb-3 sm:pb-0">
           <h1 className="2xl font-bold">Accelerometer</h1>
           <div className="flex items-center justify-between">
             <p className="leading-4 text-sm py-1">
-              <span className={`text-sm font-semibold ${statusColorClass}`}>{status}</span>
+              <span className={`text-sm font-semibold ${statusColorClass}`}>
+                {status}
+              </span>
             </p>
           </div>
         </div>
@@ -154,7 +162,10 @@ export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
         </div>
       </CardBody>
 
-      <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
+      <ChartContainer
+        config={chartConfig}
+        className="aspect-auto h-[250px] w-full"
+      >
         <AreaChart data={data} margin={{ left: 12, right: 12 }}>
           <defs>
             <linearGradient id="fillX" x1="0" y1="0" x2="0" y2="1">
