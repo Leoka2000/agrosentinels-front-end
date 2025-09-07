@@ -27,6 +27,7 @@ import { Alert } from "@heroui/alert";
 import { useBluetoothSensor } from "../../../context/useBluetoothSensor";
 import { Input } from "@heroui/input";
 import TemperatureWrapper from "@/components/temperature/TemperatureWrapper";
+import { TemperatureCard } from "@/components/temperature/TemperatureCard";
 
 interface Device {
   id: number;
@@ -183,7 +184,15 @@ const DashboardContent: React.FC = () => {
       setIsScanning(true);
       const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
-        optionalServices: [],
+        optionalServices: [
+          "11111111-1111-1111-1111-111111111111",
+          "22222222-2222-2222-2222-222222222222",
+          "33333333-3333-3333-3333-333333333333",
+          "44444444-4444-4444-4444-444444444444",
+          "55555555-5555-5555-5555-555555555555",
+          "66666666-6666-6666-6666-666666666666",
+          "77777777-7777-7777-7777-777777777777", // Corrected last UUID, full 36 chars
+        ],
       });
       setCurrentDeviceBLE(device);
       if (device.gatt) {
@@ -313,6 +322,13 @@ const DashboardContent: React.FC = () => {
         <div className="mx-auto ">
           {currentDevice && (
             <Card className="px-8 py-6 w-full">
+              <div className="grid auto-rows-min gap-4 md:grid-cols-3">
+                <div className="aspect-video">
+                  <TemperatureCard />
+                </div>
+                <div className="bg-muted/50 aspect-video rounded-xl" />
+                <div className="bg-muted/50 aspect-video rounded-xl" />
+              </div>
               <CardBody>
                 <div className="flex md:flex-row flex-col items-center justify-between w-full">
                   <div className="flex justify-between items-center space-x-2 mb-4">
@@ -326,13 +342,14 @@ const DashboardContent: React.FC = () => {
                   <BluetoothConnectButton />
                 </div>
               </CardBody>
+
               <CardBody>
                 <VoltageProvider />
               </CardBody>
               <CardBody>
                 <TemperatureWrapper />
               </CardBody>
-               <CardBody>
+              <CardBody>
                 <AccelerometerProvider />
               </CardBody>
             </Card>

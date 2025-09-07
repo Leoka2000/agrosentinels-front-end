@@ -260,9 +260,9 @@ const BluetoothConnectButton: React.FC = () => {
         backdrop="blur"
         className="pb-2"
         isOpen={isOpen}
-        isDismissable={isLogCaptureComplete}
-        isKeyboardDismissDisabled={!isLogCaptureComplete}
-        onClose={handleClose}
+        isDismissable={false} // can't dismiss via clicking backdrop
+        isKeyboardDismissDisabled={true} // can't dismiss via escape key
+        onClose={() => {}} // onClose does nothing so close button is disabled
       >
         <ModalContent>
           {() => (
@@ -301,6 +301,7 @@ const BluetoothConnectButton: React.FC = () => {
                   </>
                 )}
               </ModalBody>
+              {/* Only render Close button if log capture is complete */}
               {isLogCaptureComplete && (
                 <ModalFooter>
                   <Button

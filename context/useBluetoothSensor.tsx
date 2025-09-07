@@ -738,9 +738,7 @@ export const BluetoothSensorProvider = ({
         writeSleepOff,
         startStreaming,
         getHistoricalLogs,
-        latestParsedMessage,
-
-        
+        latestParsedMessage, 
       }}
     >
       {children}
