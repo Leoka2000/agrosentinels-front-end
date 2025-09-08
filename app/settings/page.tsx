@@ -16,7 +16,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-
+import {Spinner} from '@heroui/spinner'
 import { ThemeSwitch } from "@/components/theme-switch";
 import SearchForm from "@/components/SearchForm";
 import ProfileContent from "./ProfileContent";
@@ -43,7 +43,7 @@ export default function DashboardPage() {
   if (!isAuthenticated()) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
-        <p className="text-gray-500">Checking authentication...</p>
+        <Spinner color="primary" label="Loading..." />
       </div>
     );
   }

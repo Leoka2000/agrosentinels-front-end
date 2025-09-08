@@ -110,7 +110,7 @@ export const VoltageChart = ({ status }: VoltageChartProps) => {
   }, [range, deviceId, API_BASE_URL]);
 
   return (
-    <Card className="p-4">
+    <Card className="p-4 ">
       <CardBody className="flex z-10 flex-col items-stretch !p-0 sm:flex-row">
         <div className="flex flex-1 flex-col justify-center gap-1 py-4 mb-4 px-6 pb-3 sm:pb-0">
           <h1 className="2xl font-bold">Battery Voltage</h1>
