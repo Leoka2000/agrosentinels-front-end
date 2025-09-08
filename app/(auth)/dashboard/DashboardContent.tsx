@@ -28,6 +28,11 @@ import { useBluetoothSensor } from "../../../context/useBluetoothSensor";
 import { Input } from "@heroui/input";
 import TemperatureWrapper from "@/components/temperature/TemperatureWrapper";
 import { TemperatureCard } from "@/components/temperature/TemperatureCard";
+import { AccelerometerCard } from "@/components/accelerometer/AccelerometerCard";
+import { VoltageCard } from "@/components/voltage/VoltageCard";
+import { AmplitudeCard } from "@/components/amplitude/AmplitudeCard";
+import { FrequencyCard } from "@/components/frequency/FrequencyCard";
+import { BottomCards } from "@/components/BottomCards";
 
 interface Device {
   id: number;
@@ -323,12 +328,18 @@ const DashboardContent: React.FC = () => {
           {currentDevice && (
             <Card className="px-8 py-6 w-full">
               <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-                <div className="aspect-video">
-                  <TemperatureCard />
+                <div className="h-[12rem]">
+                  <AmplitudeCard />
                 </div>
-                <div className="bg-muted/50 aspect-video rounded-xl" />
-                <div className="bg-muted/50 aspect-video rounded-xl" />
+                <div className="h-[12rem] rounded-xl">
+                  {" "}
+                  <AccelerometerCard />
+                </div>
+                <div className="h-[12rem] rounded-xl">
+                  <FrequencyCard />
+                </div>
               </div>
+              <BottomCards />
               <CardBody>
                 <div className="flex md:flex-row flex-col items-center justify-between w-full">
                   <div className="flex justify-between items-center space-x-2 mb-4">

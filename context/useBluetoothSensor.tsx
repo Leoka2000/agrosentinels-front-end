@@ -34,6 +34,27 @@ interface ActiveDevice {
   lastReceivedTimestamp?: number;
 }
 
+interface DeviceMetrics {
+  deviceId: number;
+  deviceName: string;
+  userId: number;
+  registeredDevice: boolean;
+  lastReceivedTimestamp?: number;
+  latestTemperature?: number | null;
+  latestVoltage?: number | null;
+  latestAccelX?: number | null;
+  latestAccelY?: number | null;
+  latestAccelZ?: number | null;
+  latestFreq1?: number | null;
+  latestFreq2?: number | null;
+  latestFreq3?: number | null;
+  latestFreq4?: number | null;
+  latestAmpl1?: number | null;
+  latestAmpl2?: number | null;
+  latestAmpl3?: number | null;
+  latestAmpl4?: number | null;
+}
+
 interface BluetoothDevice {
   id: string;
   name?: string;
@@ -42,6 +63,7 @@ interface BluetoothDevice {
 
 interface BluetoothSensorContextValue {
   activeDevice: ActiveDevice | null;
+  deviceMetrics: DeviceMetrics | null;
   refreshActiveDevice: () => Promise<void>;
   scanForDevices: (serviceUuid: string) => Promise<void>;
   disconnectBluetooth: () => void;
@@ -79,6 +101,9 @@ export const BluetoothSensorProvider = ({
   const [currentDevice, setCurrentDevice] = useState<BluetoothDevice | null>(
     null
   );
+  const [deviceMetrics, setDeviceMetrics] = useState<DeviceMetrics | null>(
+    null
+  );
   const [characteristics, setCharacteristics] = useState<
     Record<string, BluetoothRemoteGATTCharacteristic>
   >({});
@@ -87,6 +112,7 @@ export const BluetoothSensorProvider = ({
   );
 
   const streamingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
   // ---------------- fetch active device logic ----------------
@@ -98,21 +124,47 @@ export const BluetoothSensorProvider = ({
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.ok) {
-        const data: ActiveDevice = await response.json();
+        const data: any = await response.json();
         setActiveDevice(data);
-        console.log("🔄 Active device updated:", data);
+
+        // ✅ Extract metrics (strip UUIDs)
+        const metrics: DeviceMetrics = {
+          deviceId: data.deviceId,
+          deviceName: data.deviceName,
+          userId: data.userId,
+          registeredDevice: data.registeredDevice,
+          lastReceivedTimestamp: data.lastReceivedTimestamp,
+          latestTemperature: data.latestTemperature,
+          latestVoltage: data.latestVoltage,
+          latestAccelX: data.latestAccelX,
+          latestAccelY: data.latestAccelY,
+          latestAccelZ: data.latestAccelZ,
+          latestFreq1: data.latestFreq1,
+          latestFreq2: data.latestFreq2,
+          latestFreq3: data.latestFreq3,
+          latestFreq4: data.latestFreq4,
+          latestAmpl1: data.latestAmpl1,
+          latestAmpl2: data.latestAmpl2,
+          latestAmpl3: data.latestAmpl3,
+          latestAmpl4: data.latestAmpl4,
+        };
+
+        setDeviceMetrics(metrics);
+        console.log("📊 Device metrics updated:", metrics); // ✅ for testing
         return data;
       } else {
         console.error("Failed to fetch active device:", response.statusText);
         setActiveDevice(null);
+        setDeviceMetrics(null);
         return null;
       }
     } catch (error) {
       console.error("Error fetching active device:", error);
       setActiveDevice(null);
+      setDeviceMetrics(null);
       return null;
     }
-  }, []);
+  }, [API_BASE_URL]);
 
   const refreshActiveDevice = useCallback(async () => {
     await fetchActiveDevice();
@@ -252,6 +304,7 @@ export const BluetoothSensorProvider = ({
     if (!activeDevice) return;
     const measurementChar = characteristics[activeDevice.measurementCharUuid];
     const setTimeChar = characteristics[activeDevice.setTimeCharUuid];
+
     if (!measurementChar || !setTimeChar) {
       console.error("🔹 Characteristics currently available:", characteristics);
       return addToast({
@@ -261,14 +314,14 @@ export const BluetoothSensorProvider = ({
     }
 
     try {
-      // Stop any existing streaming
+      // Stop any existing streaming interval
       if (streamingIntervalRef.current) {
         clearInterval(streamingIntervalRef.current);
         streamingIntervalRef.current = null;
       }
 
-      // Start notifications
       await measurementChar.startNotifications();
+
       measurementChar.addEventListener(
         "characteristicvaluechanged",
         async (event: any) => {
@@ -278,24 +331,29 @@ export const BluetoothSensorProvider = ({
             for (let i = 0; i < value.byteLength; i++) {
               hexString += value.getUint8(i).toString(16).padStart(2, "0");
             }
+
             console.log("📡 Measurement received (hex):", hexString);
 
             const numericDeviceId = activeDevice.deviceId;
             const token = getToken();
 
-            // Parse timestamp
+            // Parse timestamp & sensor values
             const unixTimestamp = parseTimestampHex(hexString);
+            const batteryVoltage = parseBatteryVoltageHex(hexString);
+            const temperature = parseTemperatureHex(hexString);
+            const accel = parseAccelerometerHex(hexString);
+            const frequencies = parseFrequencyHex(hexString);
+            const amplitudes = parseAmplitudeHex(hexString);
 
-            // ---------------- Update backend last-timestamp ----------------
+            // ---------------- Update backend last-received timestamp ----------------
             await fetch(
               `${API_BASE_URL}/api/device/${numericDeviceId}/last-timestamp?timestamp=${unixTimestamp}`,
               {
                 method: "PATCH",
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
+                headers: { Authorization: `Bearer ${token}` },
               }
             );
+
             // Update locally
             setActiveDevice((prev) =>
               prev ? { ...prev, lastReceivedTimestamp: unixTimestamp } : prev
@@ -314,14 +372,32 @@ export const BluetoothSensorProvider = ({
                 .join("")
             );
 
-            // ---------------- Parse other measurements ----------------
-            const batteryVoltage = parseBatteryVoltageHex(hexString);
-            const temperature = parseTemperatureHex(hexString);
-            const accel = parseAccelerometerHex(hexString);
-            const frequencies = parseFrequencyHex(hexString);
-            const amplitudes = parseAmplitudeHex(hexString);
+            // ---------------- PATCH: update latest values ----------------
+            await fetch(`${API_BASE_URL}/api/device/update-latest`, {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                deviceId: numericDeviceId,
+                temperature,
+                voltage: batteryVoltage,
+                accelX: accel.x,
+                accelY: accel.y,
+                accelZ: accel.z,
+                freq1: frequencies.freq1,
+                freq2: frequencies.freq2,
+                freq3: frequencies.freq3,
+                freq4: frequencies.freq4,
+                ampl1: amplitudes.ampl1,
+                ampl2: amplitudes.ampl2,
+                ampl3: amplitudes.ampl3,
+                ampl4: amplitudes.ampl4,
+              }),
+            });
 
-            // Send other sensor data to backend
+            // ---------------- Optional: store historical data ----------------
             if (!isNaN(batteryVoltage)) {
               await fetch(`${API_BASE_URL}/api/voltage`, {
                 method: "POST",
@@ -780,6 +856,7 @@ export const BluetoothSensorProvider = ({
         startStreaming,
         getHistoricalLogs,
         latestParsedMessage,
+        deviceMetrics,
       }}
     >
       {children}
