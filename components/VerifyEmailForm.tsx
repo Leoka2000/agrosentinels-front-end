@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-
 import {
   Modal,
   ModalContent,
@@ -12,12 +11,10 @@ import {
   useDisclosure,
 } from "@heroui/modal";
 import { Divider } from "@heroui/divider";
-
 import { Form } from "@heroui/form";
 import { Button } from "@heroui/button";
 import { Alert } from "@heroui/alert";
 import { Input } from "@heroui/input";
-
 import Link from "next/link";
 
 export default function VerifyEmailForm() {
@@ -32,10 +29,9 @@ export default function VerifyEmailForm() {
   const [resendCooldown, setResendCooldown] = useState(30);
 
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
-
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-  // Countdown effect
+  // Countdown effect for resend button
   useEffect(() => {
     if (resendCooldown > 0) {
       const timer = setTimeout(
@@ -61,7 +57,7 @@ export default function VerifyEmailForm() {
       const text = await res.text();
 
       if (res.ok) {
-        onOpen(); // open success modal
+        onOpen(); // success modal
       } else {
         setError(text || "Verification failed. Please try again.");
       }
@@ -98,18 +94,12 @@ export default function VerifyEmailForm() {
     <>
       <div className="w-full mx-auto flex justify-center">
         <div className="rounded-large bg-content dark:bg-neutral-900 shadow-small flex w-full max-w-md flex-col gap-4 px-8 pt-10 pb-10">
-          <h2 className="text-xl font-semibold text-center">
-            Email Verification
-          </h2>
+          <h2 className="text-xl font-semibold text-center">Email Verification</h2>
           <p className="text-small text-default-500 text-center">
             Enter the code sent to <span className="font-medium">{email}</span>
           </p>
 
-          <Form
-            className="flex flex-col gap-4"
-            validationBehavior="native"
-            onSubmit={handleVerify}
-          >
+          <Form className="flex flex-col gap-4" onSubmit={handleVerify}>
             {error && (
               <Alert
                 color="danger"
@@ -119,7 +109,7 @@ export default function VerifyEmailForm() {
               >
                 <p>{error}</p>
                 <Link href="/login">
-                  <Button size="sm"  color="primary" className="mt-2 w-full">
+                  <Button size="sm" color="primary" className="mt-2 w-full">
                     Back to Login
                   </Button>
                 </Link>
@@ -157,8 +147,8 @@ export default function VerifyEmailForm() {
               {resendLoading
                 ? "Resending..."
                 : resendCooldown > 0
-                  ? `Resend available in ${resendCooldown}s`
-                  : "Resend Verification Code"}
+                ? `Resend available in ${resendCooldown}s`
+                : "Resend Verification Code"}
             </Button>
           </Form>
 
@@ -170,12 +160,7 @@ export default function VerifyEmailForm() {
       </div>
 
       {/* Success modal */}
-      <Modal
-        isDismissable={false}
-        isKeyboardDismissDisabled={true}
-        isOpen={isOpen}
-        onOpenChange={onOpenChange}
-      >
+      <Modal isDismissable={false} isOpen={isOpen} onOpenChange={onOpenChange}>
         <ModalContent>
           {() => (
             <>
@@ -184,8 +169,7 @@ export default function VerifyEmailForm() {
               </ModalHeader>
               <ModalBody>
                 <p className="text-center">
-                  You have successfully verified your account. You can now log
-                  in.
+                  You have successfully verified your account. You can now log in.
                 </p>
               </ModalBody>
               <ModalFooter>

@@ -1,13 +1,20 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Card, CardBody } from "@heroui/card";
-import { Button } from "@heroui/button";
+import React from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@heroui/input";
+import { Alert } from "@heroui/alert";
 import { Kbd } from "@heroui/kbd";
-import { Bluetooth, BluetoothOff, Loader2 } from "lucide-react";
-import { addToast } from "@heroui/toast";
-import { Pagination } from "@heroui/pagination";
-import { Spinner } from "@heroui/spinner";
+import { Spinner } from "@heroui/spinner"; // Assuming you have a spinner component
+import { Pagination } from "@heroui/pagination"; // Replace with your shadcn pagination or custom
 import {
   Modal,
   ModalContent,
@@ -19,332 +26,85 @@ import {
 import VoltageProvider from "@/components/voltage/VoltageProvider";
 import AccelerometerProvider from "@/components/accelerometer/AccelerometerProvider";
 import BluetoothConnectButton from "@/components/ConnectBluetoothButton";
-import DeleteDeviceButton from "@/components/DeleteDeviceBtn";
-import { getToken } from "@/lib/auth";
-import { PlaceholderCards } from "@/components/PlaceholderCards";
-import { PlaceholderChart } from "@/components/PlaceholderChart";
-import { Alert } from "@heroui/alert";
-import { useBluetoothSensor } from "../../../context/useBluetoothSensor";
-import { Input } from "@heroui/input";
 import TemperatureWrapper from "@/components/temperature/TemperatureWrapper";
-import { TemperatureCard } from "@/components/temperature/TemperatureCard";
-import { AccelerometerCard } from "@/components/accelerometer/AccelerometerCard";
-import { VoltageCard } from "@/components/voltage/VoltageCard";
 import { AmplitudeCard } from "@/components/amplitude/AmplitudeCard";
 import { FrequencyCard } from "@/components/frequency/FrequencyCard";
+import { AccelerometerCard } from "@/components/accelerometer/AccelerometerCard";
 import { BottomCards } from "@/components/BottomCards";
+import { FrequencyChart } from "@/components/frequency/FrequencyChart";
+import { AmplitudeChart } from "@/components/amplitude/AmplitudeChart";
+import { PlaceholderCards } from "@/components/PlaceholderCards";
+import { PlaceholderChart } from "@/components/PlaceholderChart";
 
-interface Device {
-  id: number;
-  name: string;
-  serviceUuid: string;
-  readNotifyCharacteristicUuid: string;
-  writeCharacteristicUuid: string;
-}
-
-interface ActiveDeviceResponse {
-  deviceId: number;
-  deviceName: string;
-  serviceUuid: string;
-  readNotifyCharacteristicUuid: string;
-  writeCharacteristicUuid: string;
-  registeredDevice?: boolean;
-}
+import { useBluetoothDevice } from "@/context/BluetoothDeviceContext";
+import { Bluetooth } from "lucide-react";
 
 const DashboardContent: React.FC = () => {
-  const [isRegistered, setIsRegistered] = useState<boolean | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [activeDeviceId, setActiveDeviceId] = useState<string>("");
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [deviceSelectionTrigger, setDeviceSelectionTrigger] =
-    useState<number>(0);
-  const [page, setPage] = useState(1);
-  const [isLayoutLoading, setIsLayoutLoading] = useState(true);
-
-  // BLE registration modal state
-  const [showRegisterModal, setShowRegisterModal] = useState(false);
-  const [currentDeviceBLE, setCurrentDeviceBLE] =
-    useState<BluetoothDevice | null>(null);
-  const [form, setForm] = useState({
-    serviceUuid: "",
-    measurementCharUuid: "",
-    logReadCharUuid: "",
-    setTimeCharUuid: "",
-    ledControlCharUuid: "",
-    sleepControlCharUuid: "",
-    alarmCharUuid: "",
-  });
-  const [isScanning, setIsScanning] = useState(false);
-  const [localConnected, setLocalConnected] = useState(false);
-  const [isRegistering, setIsRegistering] = useState(false);
-
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-  const token = getToken();
-
-  type BluetoothDevice = {
-    id: string;
-    gatt?: BluetoothRemoteGATTServer;
-  };
-
-  // --- Fetch active device ---
-  const fetchActiveDevice = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/device/active`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!res.ok) throw new Error("Failed to fetch active device");
-      const data: ActiveDeviceResponse = await res.json();
-      setIsRegistered(data.registeredDevice ?? true);
-      setActiveDeviceId(data.deviceId?.toString() || "");
-    } catch (error) {
-      console.error(error);
-      setIsRegistered(false);
-    } finally {
-      setIsLayoutLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchActiveDevice();
-  }, [API_BASE_URL, token]);
-
-  // --- Fetch devices ---
-  const fetchDevices = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/device/list`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!res.ok) throw new Error("Failed to fetch devices");
-      const data: Device[] = await res.json();
-      setDevices(data || []);
-    } catch (err) {
-      console.error(err);
-      addToast({
-        title: "Error",
-        description: "Failed to load devices",
-        color: "danger",
-      });
-      setDevices([]);
-    }
-  };
-
-  useEffect(() => {
-    fetchDevices();
-  }, [deviceSelectionTrigger]);
-
-  // --- Handle device select ---
-  const handleDeviceSelect = async (deviceId: string) => {
-    try {
-      setIsSelecting(true);
-      setIsLayoutLoading(true);
-      setActiveDeviceId(deviceId);
-
-      const res = await fetch(
-        `${API_BASE_URL}/api/device/select?deviceId=${deviceId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      if (!res.ok) throw new Error("Failed to set active device");
-
-      setDeviceSelectionTrigger((prev) => prev + 1);
-      await fetchActiveDevice();
-    } catch (err: any) {
-      console.error(err);
-      addToast({
-        title: "Error",
-        description: err.message || "Failed to select device",
-        color: "danger",
-      });
-    } finally {
-      setIsSelecting(false);
-    }
-  };
-
-  useEffect(() => {
-    if (devices.length > 0 && page <= devices.length) {
-      const currentDevice = devices[page - 1];
-      if (currentDevice && currentDevice.id.toString() !== activeDeviceId) {
-        handleDeviceSelect(currentDevice.id.toString());
-      }
-    }
-  }, [page, devices]);
+  const {
+    devices,
+    page,
+    setPage,
+    isRegistered,
+    isLayoutLoading,
+    scanForDevices,
+    showRegisterModal,
+    setShowRegisterModal,
+    registerDevice,
+    form,
+    isScanning,
+    isRegistering,
+  } = useBluetoothDevice();
 
   const currentDevice = devices[page - 1];
 
-  // --- BLE Registration ---
-  const scanForDevices = async () => {
-    try {
-      setIsScanning(true);
-      const device = await navigator.bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: [
-          "11111111-1111-1111-1111-111111111111",
-          "22222222-2222-2222-2222-222222222222",
-          "33333333-3333-3333-3333-333333333333",
-          "44444444-4444-4444-4444-444444444444",
-          "55555555-5555-5555-5555-555555555555",
-          "66666666-6666-6666-6666-666666666666",
-          "77777777-7777-7777-7777-777777777777", // Corrected last UUID, full 36 chars
-        ],
-      });
-      setCurrentDeviceBLE(device);
-      if (device.gatt) {
-        await device.gatt.connect();
-        setLocalConnected(true);
-        await discoverServices(device);
-      }
-    } catch (err: any) {
-      console.error(err);
-      addToast({
-        title: err?.message || "Connection failed",
-        color: "warning",
-      });
-    } finally {
-      setIsScanning(false);
-    }
-  };
-
-  const discoverServices = async (device: BluetoothDevice) => {
-    try {
-      if (!device.gatt) throw new Error("GATT not available");
-      const server = await device.gatt.connect();
-      const services = await server.getPrimaryServices();
-      const mappedForm = { ...form };
-      for (const service of services) {
-        if (service.uuid.includes("1111"))
-          mappedForm.serviceUuid = service.uuid;
-        const chars = await service.getCharacteristics();
-        for (const char of chars) {
-          if (char.uuid.includes("2222"))
-            mappedForm.measurementCharUuid = char.uuid;
-          if (char.uuid.includes("4444"))
-            mappedForm.setTimeCharUuid = char.uuid;
-          if (char.uuid.includes("5555"))
-            mappedForm.sleepControlCharUuid = char.uuid;
-          if (char.uuid.includes("6666"))
-            mappedForm.ledControlCharUuid = char.uuid;
-          if (char.uuid.includes("7777"))
-            mappedForm.logReadCharUuid = char.uuid;
-          if (char.uuid.includes("3333")) mappedForm.alarmCharUuid = char.uuid;
-        }
-      }
-      setForm(mappedForm);
-      setShowRegisterModal(true);
-      addToast({ title: "Service discovery complete", color: "success" });
-    } catch (err) {
-      console.error(err);
-      addToast({ title: "Service discovery failed", color: "danger" });
-    }
-  };
-
-  const registerDevice = async () => {
-    try {
-      setIsRegistering(true); // Start spinner
-      const token = getToken();
-      if (!token) throw new Error("No token");
-
-      const res = await fetch(`${API_BASE_URL}/api/device/register`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(form),
-      });
-
-      if (!res.ok) throw new Error("Failed to register device");
-
-      // ✅ Show success toast
-      addToast({
-        title: "Device Registered",
-        description: "Your BLE device has been successfully registered!",
-        color: "success",
-      });
-
-      // Disconnect from the BLE device after registration
-      if (currentDeviceBLE && currentDeviceBLE.gatt?.connected) {
-        await currentDeviceBLE.gatt.disconnect();
-        setLocalConnected(false);
-        setCurrentDeviceBLE(null);
-        addToast({ title: "Device Disconnected", color: "success" });
-      }
-
-      setShowRegisterModal(false);
-      await fetchActiveDevice();
-      await fetchDevices();
-    } catch (err: any) {
-      console.error(err);
-      addToast({
-        title: "Registration Failed",
-        description: err.message || "An error occurred",
-        color: "danger",
-      });
-    } finally {
-      setIsRegistering(false); // Stop spinner
-    }
-  };
-
-  // --- Spinner while layout switches ---
   if (isLayoutLoading) {
     return (
       <div className="flex items-center justify-center h-[80vh]">
-        <Spinner color="primary" label="Loading..." />
+        <Spinner />
       </div>
     );
   }
 
   return (
-    <div className="gap-4 px-6 py-2">
-      <div className="flex justify-center pl-1 mb-5 flex-col">
+    <div className="gap-4 xl:px-24 sm:p-10 px-4  py-2">
+      {/* Header */}
+      <div className="flex justify-center  mb-5 flex-col">
         <h2 className="text-2xl font-bold">Dashboard</h2>
         <p className="text-muted-foreground text-md">
           Visualize your device's health and live metrics
         </p>
       </div>
 
-      <div className="flex justify-center my-6">
-        <Pagination
-          showControls
-          total={devices.length}
-          page={page}
-          onChange={setPage}
-        />
+      {/* Pagination */}
+      <div className="flex justify-baseline  my-10">
+        <Pagination color="success" total={devices.length} page={page} onRateChange={setPage} />
       </div>
 
+      {/* Registered Device Dashboard */}
       {isRegistered ? (
-        <div className="mx-auto ">
+        <div className="mx-auto w-full">
           {currentDevice && (
-            <Card className="px-8 py-6 w-full">
-              <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-                <div className="h-[12rem]">
-                  <AmplitudeCard />
+            <Card  className=" w-full">
+              <CardContent style={{padding:'0'}}>
+                <div className="grid auto-rows-min gap-4 lg:grid-cols-3">
+                  <div className="h-[11.5rem]">
+                    <AmplitudeCard />
+                  </div>
+                  <div className="h-[11.5rem] rounded-xl">
+                    <AccelerometerCard />
+                  </div>
+                  <div className="h-[11.5rem] rounded-xl">
+                    <FrequencyCard />
+                  </div>
                 </div>
-                <div className="h-[12rem] rounded-xl">
-                  {" "}
-                  <AccelerometerCard />
-                </div>
-                <div className="h-[12rem] rounded-xl">
-                  <FrequencyCard />
-                </div>
-              </div>
-              <BottomCards />
-              <CardBody>
-                <div className="flex md:flex-row flex-col items-center justify-between w-full">
+
+                <BottomCards />
+              </CardContent>
+              <CardContent style={{padding:'0'}} className="mb-10">
+                <div className="flex md:flex-row flex-col mb-3 md:mt-10 mt-5 items-baseline justify-between w-full">
                   <div className="flex justify-between items-center space-x-2 mb-4">
-                    <Kbd className="p-1.5">
-                      <Bluetooth size={15} />
+                    <Kbd className="p-2">
+                      <Bluetooth size={22} />
                     </Kbd>
                     <span className="font-medium text-xl">
                       {currentDevice.name}
@@ -352,68 +112,64 @@ const DashboardContent: React.FC = () => {
                   </div>
                   <BluetoothConnectButton />
                 </div>
-              </CardBody>
+              </CardContent>
 
-              <CardBody>
+              <CardContent style={{padding:'0'}} className="py-3 my-5">
                 <VoltageProvider />
-              </CardBody>
-              <CardBody>
+              </CardContent>
+              <CardContent style={{padding:'0'}} className="py-3 my-5">
                 <TemperatureWrapper />
-              </CardBody>
-              <CardBody>
+              </CardContent>
+              <CardContent style={{padding:'0'}} className="py-3 my-5">
                 <AccelerometerProvider />
-              </CardBody>
+              </CardContent >
+              <CardContent style={{padding:'0'}} className="py-3 my-5">
+                <FrequencyChart />
+              </CardContent>
+              <CardContent style={{padding:'0'}} className="py-3 my-5">
+                <AmplitudeChart />
+              </CardContent>
             </Card>
           )}
-          <div className="flex justify-center mt-6">
-            <Pagination
-              showControls
-              total={devices.length}
-              page={page}
-              onChange={setPage}
-            />
-          </div>
+
+      
         </div>
       ) : (
-        <div className="mx-auto ">
+        // Not registered
+        <div className="mx-auto w-full">
           <Card className="px-8 py-6 w-full relative overflow-hidden">
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/900 backdrop-blur-sm z-10">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm z-10">
               <div className="absolute top-32 shadow-2xl border border-neutral-300 dark:border-neutral-800 rounded-xl p-10 px-8 bg-neutral-50 dark:bg-neutral-950 flex flex-col items-center">
                 <Alert
-                  color="warning"
+                  variant="destructive"
                   title="Your device is not registered."
                   description="Please register it to start monitoring your device"
-                  endContent={
+                  action={
                     <Button
-                      color="warning"
-                      size="sm"
-                      variant="flat"
+                      variant="outline"
                       className="ml-12"
-                      onPress={scanForDevices}
+                      onClick={scanForDevices}
+                      disabled={isScanning}
                     >
-                      {isScanning ? (
-                        <Spinner color="warning" size="sm" />
-                      ) : (
-                        "Register"
-                      )}
+                      {isScanning ? <Spinner size="sm" /> : "Register"}
                     </Button>
                   }
                 />
               </div>
             </div>
 
-            <CardBody className="flex grid-cols-4">
+            <CardContent className="flex grid-cols-4">
               <PlaceholderCards />
-            </CardBody>
-            <CardBody>
+            </CardContent>
+            <CardContent>
               <PlaceholderChart />
-            </CardBody>
+            </CardContent>
           </Card>
         </div>
       )}
 
       {/* BLE Registration Modal */}
-      <Modal isOpen={showRegisterModal} onOpenChange={setShowRegisterModal}>
+      <Modal open={showRegisterModal} onOpenChange={setShowRegisterModal}>
         <ModalContent>
           <ModalHeader>Register Device</ModalHeader>
           <ModalBody className="flex flex-col gap-2">
@@ -451,21 +207,17 @@ const DashboardContent: React.FC = () => {
           </ModalBody>
           <ModalFooter>
             <Button
-              variant="bordered"
-              onPress={() => setShowRegisterModal(false)}
+              variant="outline"
+              onClick={() => setShowRegisterModal(false)}
             >
               Cancel
             </Button>
             <Button
-              color="success"
-              onPress={registerDevice}
+              variant="default"
+              onClick={registerDevice}
               disabled={isRegistering}
             >
-              {isRegistering ? (
-                <Spinner color="success" size="sm" />
-              ) : (
-                "Register"
-              )}
+              {isRegistering ? <Spinner size="sm" /> : "Register"}
             </Button>
           </ModalFooter>
         </ModalContent>

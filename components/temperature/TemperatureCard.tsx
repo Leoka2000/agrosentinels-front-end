@@ -3,32 +3,32 @@
 import {
   CardAction,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Card } from "@heroui/card";
-import { Divider } from "@heroui/divider";
 import { Kbd } from "@heroui/kbd";
 import { ThermometerSun } from "lucide-react";
+import { useBluetoothSensor } from "../../context/useBluetoothSensor";
 
 export function TemperatureCard() {
+  const { deviceMetrics } = useBluetoothSensor();
+
   return (
-    <Card className="@container/card h-[10rem] transition-transform duration-300 ease-in-out pt-5 hover:-translate-y-1.5 hover:cursor-pointer">
+    <Card className="@container/card relative h-[10rem] transition-transform duration-300 ease-in-out pt-5 hover:-translate-y-1.5 hover:cursor-pointer">
       <CardHeader>
-        <CardDescription className="mb-7 text-2xl ">Temperature</CardDescription>
-       
-        <CardTitle className="text-3xl font-semibold text-[#fb7185] tabular-nums @[250px]/card:text-3xl">
-          37C
+        <CardDescription className="mb-7 text-xl">Temperature</CardDescription>
+        <CardTitle className="text-3xl font-semibold text-[#db2777] tabular-nums">
+          {deviceMetrics?.latestTemperature
+            ? `${deviceMetrics.latestTemperature.toFixed(1)} °C`
+            : "--"}
         </CardTitle>
         <CardAction>
-          <Kbd className="p-2">
-            <ThermometerSun size={25} strokeWidth={1.2} />
+          <Kbd className="p-1.5 absolute top-5 right-5">
+            <ThermometerSun size={22}  strokeWidth={1.2} />
           </Kbd>
         </CardAction>
       </CardHeader>
-   
-     
     </Card>
   );
 }

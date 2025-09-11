@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import React, {useEffect} from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   Dropdown,
@@ -25,9 +25,9 @@ interface VoltageChartProps {
 }
 
 interface VoltageDataPoint {
-  timestamp: number; // unix timestamp from backend
+  timestamp: number; 
   voltage: number | null;
-  date?: string; // human-readable string for chart
+  date?: string; 
 }
 
 const chartConfig = {
@@ -54,7 +54,7 @@ export const VoltageChart = ({ status }: VoltageChartProps) => {
       ? "text-red-600 dark:text-red-400"
       : "text-green-600 dark:text-green-300";
 
-  // Fetch active device once
+ 
   React.useEffect(() => {
     const fetchActiveDevice = async () => {
       try {
@@ -72,8 +72,7 @@ export const VoltageChart = ({ status }: VoltageChartProps) => {
     fetchActiveDevice();
   }, [API_BASE_URL]);
 
-  // Fetch voltage history whenever range or deviceId changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (!deviceId) return;
 
     const fetchHistoricalData = async () => {
@@ -88,7 +87,6 @@ export const VoltageChart = ({ status }: VoltageChartProps) => {
         if (!res.ok) throw new Error("Failed to fetch voltage history");
         const body: VoltageDataPoint[] = await res.json();
 
-        // Convert unix timestamp to human-readable date
         const formattedData = body.map((point) => ({
           ...point,
           date: new Date(point.timestamp * 1000).toLocaleString("en-GB", {
@@ -166,7 +164,7 @@ export const VoltageChart = ({ status }: VoltageChartProps) => {
             axisLine={false}
             tickMargin={8}
             domain={["auto", "auto"]}
-            tickFormatter={(value) => `${value}V`}
+            tickFormatter={(value) => `${value.toFixed(1)}V`}
           />
           <XAxis
             dataKey="date"

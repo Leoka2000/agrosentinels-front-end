@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import React, {useEffect} from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   Dropdown,
@@ -33,7 +33,7 @@ interface TemperatureDataPoint {
 const chartConfig = {
   temperature: {
     label: "Temperature",
-    color: "#db2777", // Choose a distinct color, e.g., blue
+    color: "#db2777", 
   },
 } satisfies ChartConfig;
 
@@ -54,8 +54,8 @@ export const TemperatureChart = ({ status }: TemperatureChartProps) => {
       ? "text-red-600 dark:text-red-400"
       : "text-green-600 dark:text-green-300";
 
-  // Fetch active device
-  React.useEffect(() => {
+ 
+  useEffect(() => {
     const fetchActiveDevice = async () => {
       try {
         const token = await getToken();
@@ -75,8 +75,8 @@ export const TemperatureChart = ({ status }: TemperatureChartProps) => {
     fetchActiveDevice();
   }, [API_BASE_URL]);
 
-  // Fetch temperature history
-  React.useEffect(() => {
+
+  useEffect(() => {
     if (!deviceId) return;
 
     const fetchHistoricalData = async () => {
@@ -94,7 +94,7 @@ export const TemperatureChart = ({ status }: TemperatureChartProps) => {
         if (!res.ok) throw new Error("Failed to fetch temperature history");
         const body: TemperatureDataPoint[] = await res.json();
 
-        // Convert unix timestamp to human-readable date
+ 
         const formattedData = body.map((point) => ({
           ...point,
           date: new Date(point.timestamp * 1000).toLocaleString("en-GB", {
