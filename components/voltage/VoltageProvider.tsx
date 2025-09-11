@@ -9,7 +9,7 @@ const VoltageProvider = () => {
   return (
     <div className="mb-2 w-full rounded-lg h-full mx-auto">
       <VoltageChart
-        voltage={voltageData?.voltage ?? null}
+  voltage={voltageData?.voltage != null ? voltageData.voltage.toFixed(1) : null}
         timestamp={voltageData?.timestamp ?? null}
         status={status}
       />

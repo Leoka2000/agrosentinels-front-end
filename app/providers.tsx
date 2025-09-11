@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { ToastProvider } from "@heroui/toast";
 import { BluetoothSensorProvider } from "../context/useBluetoothSensor";
+import { BluetoothDeviceProvider } from "@/context/BluetoothDeviceContext";
+import { AuthProvider } from "@/context/AuthContext";
 
 export interface ProvidersProps {
   children: React.ReactNode;
@@ -26,11 +28,15 @@ export function Providers({ children, themeProps }: ProvidersProps) {
   const router = useRouter();
 
   return (
-    <HeroUIProvider navigate={router.push}>
-      <BluetoothSensorProvider >
-        <ToastProvider placement="top-right" toastOffset={120} />
-        <NextThemesProvider {...themeProps}>{children}</NextThemesProvider>
-      </BluetoothSensorProvider>
-    </HeroUIProvider>
+    <AuthProvider>
+      <HeroUIProvider navigate={router.push}>
+        <BluetoothDeviceProvider>
+          <BluetoothSensorProvider>
+            <ToastProvider placement="top-right" toastOffset={120} />
+            <NextThemesProvider {...themeProps}>{children}</NextThemesProvider>
+          </BluetoothSensorProvider>
+        </BluetoothDeviceProvider>
+      </HeroUIProvider>
+    </AuthProvider>
   );
 }

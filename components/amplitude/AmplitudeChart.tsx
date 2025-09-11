@@ -1,7 +1,7 @@
 "use client";
 
-import  React, {useEffect} from "react";
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import React, { useEffect } from "react";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import {
   Dropdown,
   DropdownTrigger,
@@ -20,22 +20,24 @@ import { getToken } from "@/lib/auth";
 import { Kbd } from "@heroui/kbd";
 import { Funnel } from "lucide-react";
 
-interface AccelerometerChartProps {
+interface AmplitudeChartProps {
   status: string;
 }
 
-interface AccelerometerDataPoint {
-  x: number;
-  y: number;
-  z: number;
-  timestamp: string; 
-  date?: string; 
+interface AmplitudeDataPoint {
+  ampl1: number;
+  ampl2: number;
+  ampl3: number;
+  ampl4: number;
+  timestamp: string;
+  date?: string;
 }
 
 const chartConfig = {
-  x: { label: "X Axis", color: "#f472b6" }, 
-  y: { label: "Y Axis", color: "#34d399" }, 
-  z: { label: "Z Axis", color: "#60a5fa" },
+  ampl1: { label: "Ampl 1", color: "#f43f5e" }, // red
+  ampl2: { label: "Ampl 2", color: "#3b82f6" }, // blue
+  ampl3: { label: "Ampl 3", color: "#10b981" }, // green
+  ampl4: { label: "Ampl 4", color: "#f59e0b" }, // yellow
 } satisfies ChartConfig;
 
 const ranges = [
@@ -45,11 +47,12 @@ const ranges = [
   { label: "Last 3 months", value: "3months" },
 ];
 
-export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
-  const [data, setData] = React.useState<AccelerometerDataPoint[]>([]);
+export const AmplitudeChart = ({ status }: AmplitudeChartProps) => {
+  const [data, setData] = React.useState<AmplitudeDataPoint[]>([]);
   const [range, setRange] = React.useState("day");
   const [deviceId, setDeviceId] = React.useState<number | null>(null);
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
   const statusColorClass =
     status === "Disconnected"
       ? "text-red-600 dark:text-red-400"
@@ -76,7 +79,7 @@ export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
     fetchActiveDevice();
   }, [API_BASE_URL]);
 
-
+  // Fetch amplitude history
   useEffect(() => {
     if (!deviceId) return;
 
@@ -84,7 +87,7 @@ export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
       try {
         const token = await getToken();
         const res = await fetch(
-          `${API_BASE_URL}/api/accelerometer/history?range=${range}&deviceId=${deviceId}`,
+          `${API_BASE_URL}/api/amplitude/history?range=${range}&deviceId=${deviceId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -92,21 +95,15 @@ export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
             },
           }
         );
-        if (!res.ok) throw new Error("Failed to fetch accelerometer history");
-        const body: AccelerometerDataPoint[] = await res.json();
-
+        if (!res.ok) throw new Error("Failed to fetch amplitude history");
+        const body: AmplitudeDataPoint[] = await res.json();
 
         const formattedData = body.map((point) => ({
           ...point,
-          date: new Date(point.timestamp).toLocaleString("en-GB", {
-            day: "2-digit",
-            month: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-          }),
+          date: new Date(Number(point.timestamp) * 1000).toISOString(),
         }));
 
+        console.log("Formatted Amplitude Data:", formattedData);
         setData(formattedData);
       } catch (err) {
         console.error(err);
@@ -120,7 +117,7 @@ export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
     <Card className="p-4">
       <CardBody className="flex z-10 flex-col items-stretch !p-0 sm:flex-row">
         <div className="flex flex-1 flex-col justify-center gap-1 py-4 mb-4 px-6 pb-3 sm:pb-0">
-          <h1 className="2xl font-bold">Accelerometer</h1>
+          <h1 className="2xl font-bold">Amplitude</h1>
           <div className="flex items-center justify-between">
             <p className="leading-4 text-sm py-1">
               <span className={`text-sm font-semibold ${statusColorClass}`}>
@@ -165,73 +162,78 @@ export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
         config={chartConfig}
         className="aspect-auto h-[250px] w-full"
       >
-        <AreaChart data={data} margin={{ left: 12, right: 12 }}>
-          <defs>
-            <linearGradient id="fillX" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-x)" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="var(--color-x)" stopOpacity={0.1} />
-            </linearGradient>
-            <linearGradient id="fillY" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-y)" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="var(--color-y)" stopOpacity={0.1} />
-            </linearGradient>
-            <linearGradient id="fillZ" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-z)" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="var(--color-z)" stopOpacity={0.1} />
-            </linearGradient>
-          </defs>
+        <LineChart
+          accessibilityLayer
+          data={data}
+          margin={{ left: 12, right: 12 }}
+        >
           <CartesianGrid vertical={false} />
-          <YAxis
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            domain={["auto", "auto"]}
-            tickFormatter={(value) => `${value}`}
-          />
           <XAxis
             dataKey="date"
             tickLine={false}
             axisLine={false}
             tickMargin={8}
             minTickGap={32}
+            tickFormatter={(value) => {
+              const date = new Date(value);
+              return date.toLocaleTimeString("en-GB", {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+            }}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            domain={["auto", "auto"]}
           />
           <ChartTooltip
             content={
               <ChartTooltipContent
-                className="w-[200px]"
-                nameKey="accelerometer"
-                labelFormatter={(value: any) => value}
-                valueFormatter={(val, props) => `${val}`}
-                keys={["x", "y", "z"]}
+                className="w-[220px]"
+                nameKey="amplitude"
+                labelFormatter={(value: any) =>
+                  new Date(value).toLocaleString("en-GB", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                }
+                keys={["ampl1", "ampl2", "ampl3", "ampl4"]}
               />
             }
           />
-          {/* Three Area lines for x, y, z */}
-          <Area
-            dataKey="x"
+          <Line
+            dataKey="ampl1"
             type="monotone"
-            fill="url(#fillX)"
-            stroke="var(--color-x)"
+            stroke="var(--color-ampl1)"
             strokeWidth={2}
-            isAnimationActive={true}
+            dot={false}
           />
-          <Area
-            dataKey="y"
+          <Line
+            dataKey="ampl2"
             type="monotone"
-            fill="url(#fillY)"
-            stroke="var(--color-y)"
+            stroke="var(--color-ampl2)"
             strokeWidth={2}
-            isAnimationActive={true}
+            dot={false}
           />
-          <Area
-            dataKey="z"
+          <Line
+            dataKey="ampl3"
             type="monotone"
-            fill="url(#fillZ)"
-            stroke="var(--color-z)"
+            stroke="var(--color-ampl3)"
             strokeWidth={2}
-            isAnimationActive={true}
+            dot={false}
           />
-        </AreaChart>
+          <Line
+            dataKey="ampl4"
+            type="monotone"
+            stroke="var(--color-ampl4)"
+            strokeWidth={2}
+            dot={false}
+          />
+        </LineChart>
       </ChartContainer>
     </Card>
   );
