@@ -135,14 +135,11 @@ export function DeviceSwitcher() {
             <DropdownMenu aria-label="Device Switcher" >
               {/* Create Device */}
               <DropdownItem
-                startContent={
-                  <div className="flex size-6 items-center justify-center rounded-md  ">
+                startContent={<div className="flex size-6 items-center justify-center rounded-md  ">
                   <SquarePlus className="size-4 " />
-                  </div>
-                }
+                </div>}
                 className="font-medium"
-                onPress={() => setShowCreateModal(true)}
-              >
+                onPress={() => setShowCreateModal(true)} key={""}              >
                 Create Device
               </DropdownItem>
 
@@ -151,10 +148,7 @@ export function DeviceSwitcher() {
                 <DropdownItem
                   startContent={<Trash2 className="size-4 ml-1 text-[#f31260]" />}
                   className="font-medium text-[#f31260] hover:text-[#f31260] dark:hover:text-[#f31260]"
-                  onPress={() =>
-                    alert(`⚠️ Deleting device: ${activeDevice.name}`)
-                  }
-                >
+                  onPress={() => alert(`⚠️ Deleting device: ${activeDevice.name}`)} key={""}                >
                   Delete Device
                 </DropdownItem>
               </DropdownSection>

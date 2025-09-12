@@ -20,9 +20,6 @@ import { getToken } from "@/lib/auth";
 import { Kbd } from "@heroui/kbd";
 import { Funnel } from "lucide-react";
 
-interface TemperatureChartProps {
-  status: string;
-}
 
 interface TemperatureDataPoint {
   timestamp: number; // unix timestamp from backend
@@ -44,7 +41,7 @@ const ranges = [
   { label: "Last 3 months", value: "3months" },
 ];
 
-export const TemperatureChart = ({ status }: TemperatureChartProps) => {
+export const TemperatureChart = () => {
   const [data, setData] = React.useState<TemperatureDataPoint[]>([]);
   const [range, setRange] = React.useState("day");
   const [deviceId, setDeviceId] = React.useState<number | null>(null);
@@ -200,7 +197,6 @@ export const TemperatureChart = ({ status }: TemperatureChartProps) => {
                 className="w-[150px]"
                 nameKey="temperature"
                 labelFormatter={(value: any) => value}
-                valueFormatter={(val) => `${val} °C`}
               />
             }
           />

@@ -181,7 +181,7 @@ const TestButtons: React.FC<TestButtonsProps> = ({ onPacketReceived }) => {
         onPacketReceived?.(packetHex); // Call callback with packet hex
         return { buffer: packetData.buffer, getUint8: (i: number) => packetData[i] } as DataView;
       },
-    } as BluetoothRemoteGATTCharacteristic;
+    } as any;
 
     // Temporarily override characteristic
     setCharacteristics({
@@ -264,7 +264,7 @@ const TestButtons: React.FC<TestButtonsProps> = ({ onPacketReceived }) => {
       removeEventListener: (type: string, listener: (event: any) => void) => {
         window.removeEventListener(type, listener);
       },
-    } as BluetoothRemoteGATTCharacteristic;
+    } as any;
 
     // Temporarily override characteristic
     setCharacteristics({

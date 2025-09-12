@@ -20,9 +20,7 @@ import { getToken } from "@/lib/auth";
 import { Kbd } from "@heroui/kbd";
 import { Funnel } from "lucide-react";
 
-interface AmplitudeChartProps {
-  status: string;
-}
+
 
 interface AmplitudeDataPoint {
   ampl1: number;
@@ -47,7 +45,7 @@ const ranges = [
   { label: "Last 3 months", value: "3months" },
 ];
 
-export const AmplitudeChart = ({ status }: AmplitudeChartProps) => {
+export const AmplitudeChart = () => {
   const [data, setData] = React.useState<AmplitudeDataPoint[]>([]);
   const [range, setRange] = React.useState("day");
   const [deviceId, setDeviceId] = React.useState<number | null>(null);
@@ -201,7 +199,6 @@ export const AmplitudeChart = ({ status }: AmplitudeChartProps) => {
                     minute: "2-digit",
                   })
                 }
-                keys={["ampl1", "ampl2", "ampl3", "ampl4"]}
               />
             }
           />

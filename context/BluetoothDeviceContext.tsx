@@ -1,5 +1,12 @@
 "use client";
 
+// Extend the Navigator interface to include 'bluetooth'
+declare global {
+  interface Navigator {
+    bluetooth: any;
+  }
+}
+
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { addToast } from "@heroui/toast";
 import { useAuth } from "./AuthContext";
@@ -33,17 +40,23 @@ type BluetoothDeviceContextType = {
   currentDeviceBLE: BluetoothDevice | null;
   showRegisterModal: boolean;
   setShowRegisterModal: React.Dispatch<React.SetStateAction<boolean>>;
+  setShowCreateModal: React.Dispatch<React.SetStateAction<boolean>>;
+  saveDevice: (deviceName: string) => Promise<void>;
+  showCreateModal: boolean;
   registerDevice: () => Promise<void>;
   form: any;
   isScanning: boolean;
   localConnected: boolean;
   isRegistering: boolean;
   refreshDevices: () => Promise<void>;
+  showDeleteModal: boolean;
+  setShowDeleteModal: React.Dispatch<React.SetStateAction<boolean>>;
+  deleteDevice: () => Promise<void>;
 };
 
 type BluetoothDevice = {
   id: string;
-  gatt?: BluetoothRemoteGATTServer;
+  gatt?: any; // Provided by the DOM lib, fallback to 'any' if type is missing
 };
 
 const BluetoothDeviceContext = createContext<
@@ -272,7 +285,7 @@ useEffect(() => {
     }
 
     try {
-      const token = await getToken();
+   
       if (!token) throw new Error("No authentication token found");
 
       const res = await fetch(

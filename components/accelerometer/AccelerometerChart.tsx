@@ -20,9 +20,6 @@ import { getToken } from "@/lib/auth";
 import { Kbd } from "@heroui/kbd";
 import { Funnel } from "lucide-react";
 
-interface AccelerometerChartProps {
-  status: string;
-}
 
 interface AccelerometerDataPoint {
   x: number;
@@ -45,7 +42,7 @@ const ranges = [
   { label: "Last 3 months", value: "3months" },
 ];
 
-export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
+export const AccelerometerChart = () => {
   const [data, setData] = React.useState<AccelerometerDataPoint[]>([]);
   const [range, setRange] = React.useState("day");
   const [deviceId, setDeviceId] = React.useState<number | null>(null);
@@ -201,8 +198,6 @@ export const AccelerometerChart = ({ status }: AccelerometerChartProps) => {
                 className="w-[200px]"
                 nameKey="accelerometer"
                 labelFormatter={(value: any) => value}
-                valueFormatter={(val, props) => `${val}`}
-                keys={["x", "y", "z"]}
               />
             }
           />

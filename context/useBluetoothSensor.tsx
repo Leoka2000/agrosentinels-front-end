@@ -8,7 +8,7 @@ import React, {
   useState,
   ReactNode,
 } from "react";
-import { getToken } from "../lib/auth";
+import { useAuth } from "./AuthContext";
 import { addToast } from "@heroui/toast";
 import {
   parseTimestampHex,
@@ -61,6 +61,16 @@ interface BluetoothDevice {
   gatt?: any;
 }
 
+type BluetoothRemoteGATTCharacteristic = {
+  uuid: string;
+  startNotifications: () => Promise<void>;
+  stopNotifications?: () => Promise<void>;
+  addEventListener: (type: string, listener: (event: any) => void) => void;
+  removeEventListener: (type: string, listener: (event: any) => void) => void;
+  writeValue: (value: BufferSource) => Promise<void>;
+  readValue: () => Promise<DataView>;
+};
+
 interface BluetoothSensorContextValue {
   activeDevice: ActiveDevice | null;
   deviceMetrics: DeviceMetrics | null;
@@ -82,6 +92,7 @@ interface BluetoothSensorContextValue {
     onComplete?: () => void,
     onPacketReceived?: (hexString: string) => void
   ) => Promise<void>;
+  latestParsedMessage: string | null;
 }
 
 const BluetoothSensorContext =
@@ -104,6 +115,7 @@ export const BluetoothSensorProvider = ({
   const [deviceMetrics, setDeviceMetrics] = useState<DeviceMetrics | null>(
     null
   );
+  const { token } = useAuth();
   const [characteristics, setCharacteristics] = useState<
     Record<string, BluetoothRemoteGATTCharacteristic>
   >({});
@@ -117,62 +129,57 @@ export const BluetoothSensorProvider = ({
 
   // ---------------- fetch active device logic ----------------
   const fetchActiveDevice = useCallback(async () => {
+    if (!token) return null; // 🚀 don't call API without token
     try {
-      const token = getToken();
       const response = await fetch(`${API_BASE_URL}/api/device/active`, {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (response.ok) {
-        const data: any = await response.json();
-        setActiveDevice(data);
+      if (!response.ok) throw new Error(response.statusText);
 
-        // ✅ Extract metrics (strip UUIDs)
-        const metrics: DeviceMetrics = {
-          deviceId: data.deviceId,
-          deviceName: data.deviceName,
-          userId: data.userId,
-          registeredDevice: data.registeredDevice,
-          lastReceivedTimestamp: data.lastReceivedTimestamp,
-          latestTemperature: data.latestTemperature,
-          latestVoltage: data.latestVoltage,
-          latestAccelX: data.latestAccelX,
-          latestAccelY: data.latestAccelY,
-          latestAccelZ: data.latestAccelZ,
-          latestFreq1: data.latestFreq1,
-          latestFreq2: data.latestFreq2,
-          latestFreq3: data.latestFreq3,
-          latestFreq4: data.latestFreq4,
-          latestAmpl1: data.latestAmpl1,
-          latestAmpl2: data.latestAmpl2,
-          latestAmpl3: data.latestAmpl3,
-          latestAmpl4: data.latestAmpl4,
-        };
+      const data: ActiveDevice = await response.json();
+      setActiveDevice(data);
 
-        setDeviceMetrics(metrics);
-        console.log("📊 Device metrics updated:", metrics); // ✅ for testing
-        return data;
-      } else {
-        console.error("Failed to fetch active device:", response.statusText);
-        setActiveDevice(null);
-        setDeviceMetrics(null);
-        return null;
-      }
+      const metrics: DeviceMetrics = {
+        deviceId: data.deviceId,
+        deviceName: data.deviceName,
+        userId: data.userId,
+        registeredDevice: data.registeredDevice,
+        lastReceivedTimestamp: data.lastReceivedTimestamp,
+        latestTemperature: data.latestTemperature,
+        latestVoltage: data.latestVoltage,
+        latestAccelX: data.latestAccelX,
+        latestAccelY: data.latestAccelY,
+        latestAccelZ: data.latestAccelZ,
+        latestFreq1: data.latestFreq1,
+        latestFreq2: data.latestFreq2,
+        latestFreq3: data.latestFreq3,
+        latestFreq4: data.latestFreq4,
+        latestAmpl1: data.latestAmpl1,
+        latestAmpl2: data.latestAmpl2,
+        latestAmpl3: data.latestAmpl3,
+        latestAmpl4: data.latestAmpl4,
+      };
+      setDeviceMetrics(metrics);
+      console.log("📊 Device metrics updated:", metrics);
+
+      return data;
     } catch (error) {
       console.error("Error fetching active device:", error);
       setActiveDevice(null);
       setDeviceMetrics(null);
       return null;
     }
-  }, [API_BASE_URL]);
+  }, [API_BASE_URL, token]);
 
   const refreshActiveDevice = useCallback(async () => {
     await fetchActiveDevice();
   }, [fetchActiveDevice]);
-
   useEffect(() => {
-    fetchActiveDevice();
-  }, [fetchActiveDevice]);
+    if (token) {
+      fetchActiveDevice();
+    }
+  }, [token, fetchActiveDevice]);
 
   useEffect(() => {
     if (deviceSelectionTrigger !== undefined && deviceSelectionTrigger > 0) {
@@ -277,40 +284,45 @@ export const BluetoothSensorProvider = ({
   };
 
   // ---------------- Sleep Control ----------------
-  const writeSleepOn = async (sleepControlCharUuid: string) => {
+  const writeSleepOn = async (sleepControlCharUuid: string): Promise<void> => {
     const char = characteristics[sleepControlCharUuid];
-    if (!char)
-      return addToast({
+    if (!char) {
+      addToast({
         title: "Sleep Control characteristic not found",
         color: "warning",
       });
+      return;
+    }
     await char.writeValue(Uint8Array.of(0x4e)); // Sleep ON
     addToast({ title: "Sleep ON sent", color: "success" });
   };
 
-  const writeSleepOff = async (sleepControlCharUuid: string) => {
+  const writeSleepOff = async (sleepControlCharUuid: string): Promise<void> => {
     const char = characteristics[sleepControlCharUuid];
-    if (!char)
-      return addToast({
+    if (!char) {
+      addToast({
         title: "Sleep Control characteristic not found",
         color: "warning",
       });
+      return;
+    }
     await char.writeValue(Uint8Array.of(0x46)); // Sleep OFF
     addToast({ title: "Sleep OFF sent", color: "success" });
   };
 
   // ---------------- Start streaming ----------------
-  const startStreaming = async () => {
+  const startStreaming = async (): Promise<void> => {
     if (!activeDevice) return;
     const measurementChar = characteristics[activeDevice.measurementCharUuid];
     const setTimeChar = characteristics[activeDevice.setTimeCharUuid];
 
     if (!measurementChar || !setTimeChar) {
       console.error("🔹 Characteristics currently available:", characteristics);
-      return addToast({
+      addToast({
         title: "Required characteristics not found",
         color: "warning",
       });
+      return;
     }
 
     try {
@@ -651,7 +663,11 @@ export const BluetoothSensorProvider = ({
                       "characteristicvaluechanged",
                       handler
                     );
-                    await measurementChar.stopNotifications();
+                    if (
+                      typeof measurementChar.stopNotifications === "function"
+                    ) {
+                      await measurementChar.stopNotifications();
+                    }
 
                     if (onComplete) onComplete();
                   } catch (err) {

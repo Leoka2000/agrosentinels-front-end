@@ -127,7 +127,7 @@ export function NavUser() {
 
           <DropdownMenu>
             {/* User Info as non-interactive DropdownItem */}
-            <DropdownItem className="cursor-default">
+            <DropdownItem className="cursor-default" key={""}>
               <div className="flex items-center gap-2 px-2 py-1">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarFallback>{getInitials(user.username)}</AvatarFallback>

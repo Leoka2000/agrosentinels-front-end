@@ -3,13 +3,21 @@
 import { Input } from "@heroui/input";
 import { Search } from "lucide-react";
 
+type SearchIconProps = {
+  size?: number;
+  strokeWidth?: number;
+  width?: number | string;
+  height?: number | string;
+  [key: string]: any;
+};
+
 export const SearchIcon = ({
   size = 24,
   strokeWidth = 1.5,
   width,
   height,
   ...props
-}) => {
+}: SearchIconProps) => {
   return (
     <svg
       aria-hidden="true"

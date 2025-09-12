@@ -20,9 +20,6 @@ import { getToken } from "@/lib/auth";
 import { Kbd } from "@heroui/kbd";
 import { Funnel } from "lucide-react";
 
-interface VoltageChartProps {
-  status: string;
-}
 
 interface VoltageDataPoint {
   timestamp: number; 
@@ -44,7 +41,7 @@ const ranges = [
   { label: "Last 3 months", value: "3months" },
 ];
 
-export const VoltageChart = ({ status }: VoltageChartProps) => {
+export const VoltageChart = () => {
   const [data, setData] = React.useState<VoltageDataPoint[]>([]);
   const [range, setRange] = React.useState("day");
   const [deviceId, setDeviceId] = React.useState<number | null>(null);
@@ -178,8 +175,7 @@ export const VoltageChart = ({ status }: VoltageChartProps) => {
               <ChartTooltipContent
                 className="w-[150px]"
                 nameKey="voltage"
-                labelFormatter={(value: any) => value}
-                valueFormatter={(val) => `${val} V`}
+                labelFormatter={(value: any) => `${value} V`}
               />
             }
           />

@@ -118,7 +118,7 @@ export default function DeleteDeviceButton() {
             />
           </ModalBody>
           <ModalFooter className="flex justify-end gap-2">
-            <Button variant="outlined" onPress={() => setIsOpen(false)}>
+            <Button variant={"faded"} onPress={() => setIsOpen(false)}>
               Cancel
             </Button>
             <Button color="danger" onPress={handleDelete} isLoading={loading}>

@@ -196,7 +196,6 @@ export const FrequencyChart = () => {
                     minute: "2-digit",
                   })
                 }
-                keys={["freq1", "freq2", "freq3", "freq4"]}
               />
             }
           />
