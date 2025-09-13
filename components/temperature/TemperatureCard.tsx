@@ -17,12 +17,12 @@ export function TemperatureCard() {
   return (
     <Card className="@container/card relative h-[10rem] transition-transform duration-300 ease-in-out pt-5 hover:-translate-y-1.5 hover:cursor-pointer">
       <CardHeader>
-        <CardDescription className="mb-7 text-xl">Temperature</CardDescription>
+        <CardDescription className="mb-7 font-bold text-xl">Temperature</CardDescription>
         <CardTitle className="text-3xl font-semibold text-[#db2777] tabular-nums">
           {deviceMetrics?.latestTemperature
             ? `${deviceMetrics.latestTemperature.toFixed(1)} `
             : "--"}
-            <span className="text-base  font-extralight text-muted-foreground">°C</span>
+            <span className="text-base  font-light text-muted-foreground">°C</span>
         </CardTitle>
         <CardAction>
           <Kbd className="p-1.5 absolute top-5 right-5">

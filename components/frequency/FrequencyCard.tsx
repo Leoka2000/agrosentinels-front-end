@@ -20,7 +20,7 @@ export function FrequencyCard() {
   return (
     <Card className="@container/card h-full nunito-custom relative transition-transform duration-300 pt-5 ease-in-out hover:-translate-y-1.5 hover:cursor-pointer">
       <CardHeader>
-        <CardDescription className="mb-4 text-xl">Frequency</CardDescription>
+        <CardDescription className="mb-3 font-bold text-2xl">Frequency</CardDescription>
 
         <div className="flex flex-col items-baseline  space-y-4">
           {/* Top two values */}
@@ -30,8 +30,8 @@ export function FrequencyCard() {
                 key={i}
                 className="flex items-baseline text-[#25b64e] text-xl"
               >
-                <span className="font-semibold  text-2xl">{freq}</span>
-                <span className="ml-1 text-base font-extralight text-muted-foreground">
+                <span className="font-bold  text-2xl">{freq}</span>
+                <span className="ml-1 text-sm font-light text-muted-foreground">
                   Hz
                 </span>
               </div>
@@ -39,7 +39,7 @@ export function FrequencyCard() {
           </div>
 
           {/* Divider between top and bottom */}
-          <Divider className="w-48 rounded-full" />
+          <Divider className="w-42 rounded-full" />
 
           {/* Bottom two values */}
           <div className="grid grid-cols-2 gap-x-8">
@@ -49,7 +49,7 @@ export function FrequencyCard() {
                 className="flex items-baseline text-[#25b64e] text-xl"
               >
                 <span className="font-semibold text-2xl">{freq}</span>
-                <span className="ml-1 text-base font-extralight text-muted-foreground">
+                <span className="ml-1 text-sm font-light text-muted-foreground">
                   Hz
                 </span>
               </div>

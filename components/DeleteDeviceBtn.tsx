@@ -10,6 +10,7 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
+import { useAuth } from "@/context/AuthContext";
 import { addToast } from "@heroui/toast";
 import { getToken } from "@/lib/auth";
 import { Alert } from "@heroui/alert";
@@ -18,11 +19,11 @@ export default function DeleteDeviceButton() {
   const [deviceId, setDeviceId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const { token } = useAuth();
 
   // Fetch active device on mount
   useEffect(() => {
     const fetchActiveDevice = async () => {
-      const token = getToken();
       try {
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/device/active`,
@@ -55,7 +56,6 @@ export default function DeleteDeviceButton() {
 
     setLoading(true);
     try {
-      const token = getToken();
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/device/list/${deviceId}`,
         {
@@ -98,7 +98,6 @@ export default function DeleteDeviceButton() {
       <Button
         color={"danger"}
         variant={"faded"}
-
         className="w-58 border-default-200 "
         startContent={<Trash2 size={17} />}
         onPress={() => setIsOpen(true)}

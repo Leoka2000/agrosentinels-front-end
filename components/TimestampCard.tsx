@@ -16,11 +16,11 @@ export function TimestampCard() {
   return (
     <Card className="@container/card h-[10rem] pt-5 transition-transform duration-300 ease-in-out  hover:-translate-y-1.5 hover:cursor-pointer">
       <CardHeader>
-        <CardDescription className="mb-5 text-xl ">
+        <CardDescription className="mb-5 font-bold text-xl ">
           Last update
         </CardDescription>
 
-        <CardTitle className="text-3xl font-medium text-neutral-700 dark:text-neutral-300 tabular-nums ">
+        <CardTitle className="xl:text-xl text-lg font-semibold text-neutral-700 dark:text-neutral-300 tabular-nums ">
        ---
         </CardTitle>
         <CardAction>

@@ -9,14 +9,14 @@ html,
 body,
 * {
 
-font-family: "Instrument Sans", sans-serif!important;
- 
+font-family: "Nunito", sans-serif!important;
+ font-optical-sizing: auto;
+   /* Change between 200–1000 depending on your needs */
+  font-style: normal;
 }
 .nunito-custom {
   font-family: "Nunito", sans-serif!important;
-  font-optical-sizing: auto;
-  font-weight: 400; /* Change between 200–1000 depending on your needs */
-  font-style: normal;
+
 }
 
 

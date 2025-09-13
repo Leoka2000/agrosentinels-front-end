@@ -1,15 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Bluetooth, ChevronsUpDown, Plus, SquarePlus, Trash2 } from "lucide-react";
-
+import { Bluetooth, ChevronsUpDown, SquarePlus, Trash2 } from "lucide-react";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-
 import {
   Dropdown,
   DropdownTrigger,
@@ -17,90 +15,46 @@ import {
   DropdownItem,
   DropdownSection,
 } from "@heroui/dropdown";
-
-import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "@heroui/modal";
-
+import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
-import { addToast } from "@heroui/toast";
-import { getToken } from "@/lib/auth";
+import { useBluetoothDevice } from "@/context/BluetoothDeviceContext";
 
 export function DeviceSwitcher() {
   const { isMobile } = useSidebar();
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const {
+    saveDevice,
+    setShowCreateModal,
+    showCreateModal,
+    setShowRegisterModal,
+    devices,
+    activeDeviceId,
+  } = useBluetoothDevice();
 
-  // Active device state
-  const [activeDevice, setActiveDevice] = React.useState<{
-    name: string;
-    logo: React.FC;
-  }>({
-    name: "No Device Selected",
-    logo: () => (
-      <div className="flex size-10 w-10 h-8 items-center justify-center rounded-md border text-neutral-700 dark:text-neutral-300 dark:bg-neutral-950 bg-neutral-100">
-        <Bluetooth size={17} />
-      </div>
-    ),
-  });
+  // Find the currently active device from the context
+  const activeDevice = React.useMemo(() => {
+    const device = devices.find(d => d.id.toString() === activeDeviceId);
+    return device
+      ? {
+          name: device.name,
+          logo: () => (
+            <div className="flex size-10 w-10 h-8 items-center justify-center rounded-md border text-neutral-700 dark:text-neutral-300 dark:bg-neutral-950 bg-neutral-100">
+              <Bluetooth size={17} />
+            </div>
+          ),
+        }
+      : {
+          name: "No Device Selected",
+          logo: () => (
+            <div className="flex size-10 w-10 h-8 items-center justify-center rounded-md border text-neutral-700 dark:text-neutral-300 dark:bg-neutral-950 bg-neutral-100">
+              <Bluetooth size={17} />
+            </div>
+          ),
+        };
+  }, [devices, activeDeviceId]);
 
-  // Modal + form state
-  const [showCreateModal, setShowCreateModal] = React.useState(false);
+  // Local state for new device name
   const [deviceName, setDeviceName] = React.useState("");
-
-  if (!activeDevice) return null;
-
-  // --- Save Device ---
-  const saveDevice = async () => {
-    try {
-      const token = getToken();
-      if (!token) throw new Error("No authentication token found");
-
-      const payload = {
-        name: deviceName,
-        serviceUuid: null,
-        measurementCharUuid: null,
-        logReadCharUuid: null,
-        setTimeCharUuid: null,
-        ledControlCharUuid: null,
-        sleepControlCharUuid: null,
-        alarmCharUuid: null,
-      };
-
-      const res = await fetch(`${API_BASE_URL}/api/device/create`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error("Failed to save device");
-
-      addToast({ title: "Device created successfully", color: "success" });
-
-      // Update UI with new active device
-      setActiveDevice({
-        name: deviceName,
-        logo: () => (
-          <div className="flex size-10 w-10 h-8 items-center justify-center rounded-md border dark:bg-neutral-950 bg-neutral-100">
-            <Bluetooth size={17} />
-          </div>
-        ),
-      });
-
-      setShowCreateModal(false);
-      setDeviceName("");
-    } catch (err) {
-      console.error(err);
-      addToast({ title: "Error saving device", color: "danger" });
-    }
-  };
 
   return (
     <>
@@ -111,8 +65,7 @@ export function DeviceSwitcher() {
             placement={isMobile ? "bottom" : "right-start"}
             classNames={{
               base: "before:bg-default-200",
-              content:
-                "py-1 px-1 border border-default-200 bg-linear-to-br from-white to-default-200 dark:from-default-50 dark:to-black",
+              content: "py-1 px-1 border border-default-200 bg-linear-to-br from-white to-default-200 dark:from-default-50 dark:to-black",
             }}
           >
             <DropdownTrigger>
@@ -124,31 +77,33 @@ export function DeviceSwitcher() {
                   <activeDevice.logo />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">
-                    {activeDevice.name}
-                  </span>
+                  <span className="truncate font-medium">{activeDevice.name}</span>
                 </div>
                 <ChevronsUpDown className="ml-auto" />
               </SidebarMenuButton>
             </DropdownTrigger>
 
-            <DropdownMenu aria-label="Device Switcher" >
+            <DropdownMenu aria-label="Device Switcher">
               {/* Create Device */}
               <DropdownItem
-                startContent={<div className="flex size-6 items-center justify-center rounded-md  ">
-                  <SquarePlus className="size-4 " />
-                </div>}
+                startContent={
+                  <div className="flex size-6 items-center justify-center rounded-md">
+                    <SquarePlus className="size-4" />
+                  </div>
+                }
                 className="font-medium"
-                onPress={() => setShowCreateModal(true)} key={""}              >
+                onPress={() => setShowCreateModal(true)}
+              >
                 Create Device
               </DropdownItem>
 
               {/* Danger Zone */}
-              <DropdownSection >
+              <DropdownSection>
                 <DropdownItem
                   startContent={<Trash2 className="size-4 ml-1 text-[#f31260]" />}
                   className="font-medium text-[#f31260] hover:text-[#f31260] dark:hover:text-[#f31260]"
-                  onPress={() => alert(`⚠️ Deleting device: ${activeDevice.name}`)} key={""}                >
+                  onPress={() => alert(`⚠️ Deleting device: ${activeDevice.name}`)}
+                >
                   Delete Device
                 </DropdownItem>
               </DropdownSection>
@@ -176,9 +131,9 @@ export function DeviceSwitcher() {
             <Button
               color="success"
               isDisabled={!deviceName.trim()}
-              onPress={saveDevice}
+              onPress={() => saveDevice(deviceName.trim())}
             >
-              Save
+              Create
             </Button>
           </ModalFooter>
         </ModalContent>

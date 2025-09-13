@@ -107,99 +107,63 @@ export const BluetoothDeviceProvider: React.FC<{
 
   // Fetch active device
   const fetchActiveDevice = async () => {
-  if (!token) return; // 🚀 don’t call API without token
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/device/active`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    if (!res.ok) throw new Error("Failed to fetch active device");
-    const data: ActiveDeviceResponse = await res.json();
-    setIsRegistered(data.registeredDevice ?? true);
-    setActiveDeviceId(data.deviceId?.toString() || "");
-  } catch (error) {
-    console.error(error);
-    setIsRegistered(false);
-  } finally {
-    setIsLayoutLoading(false);
-  }
-};
-
-  const saveDevice = async (deviceName: string) => {
+    if (!token) return; // 🚀 don’t call API without token
     try {
-      if (!token) throw new Error("No authentication token found");
-
-      const payload = {
-        name: deviceName,
-        serviceUuid: null,
-        measurementCharUuid: null,
-        logReadCharUuid: null,
-        setTimeCharUuid: null,
-        ledControlCharUuid: null,
-        sleepControlCharUuid: null,
-        alarmCharUuid: null,
-      };
-
-      const res = await fetch(`${API_BASE_URL}/api/device/create`, {
-        method: "POST",
+      const res = await fetch(`${API_BASE_URL}/api/device/active`, {
+        method: "GET",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
       });
-
-      if (!res.ok) throw new Error("Failed to save device");
-
-      addToast({ title: "Device created successfully", color: "success" });
-      setShowCreateModal(false);
-      await fetchDevices();
-    } catch (err) {
-      console.error(err);
-      addToast({ title: "Error saving device", color: "danger" });
+      if (!res.ok) throw new Error("Failed to fetch active device");
+      const data: ActiveDeviceResponse = await res.json();
+      setIsRegistered(!!data.registeredDevice);
+      setActiveDeviceId(data.deviceId?.toString() || "");
+    } catch (error) {
+      console.error(error);
+      setIsRegistered(false);
+    } finally {
+      setIsLayoutLoading(false);
     }
   };
 
   // Fetch devices
-const fetchDevices = async () => {
-  if (!token) return; // 🚀 don’t call API without token
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/device/list`, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    if (!res.ok) throw new Error("Failed to fetch devices");
-    const data: Device[] = await res.json();
-    setDevices(data || []);
-  } catch (err) {
-    console.error(err);
-    addToast({
-      title: "Error",
-      description: "Failed to load devices",
-      color: "danger",
-    });
-    setDevices([]);
-  }
-};
+  const fetchDevices = async () => {
+    if (!token) return; // 🚀 don’t call API without token
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/device/list`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) throw new Error("Failed to fetch devices");
+      const data: Device[] = await res.json();
+      setDevices(data || []);
+    } catch (err) {
+      console.error(err);
+      addToast({
+        title: "Error",
+        description: "Failed to load devices",
+        color: "danger",
+      });
+      setDevices([]);
+    }
+  };
   useEffect(() => {
-  if (token) {
-    fetchActiveDevice();
-    fetchDevices();
-  }
-}, [token]);
+    if (token) {
+      fetchActiveDevice();
+      fetchDevices();
+    }
+  }, [token]);
 
-// Keep your deviceSelectionTrigger effect as is
-useEffect(() => {
-  if (token) {
-    fetchDevices();
-  }
-}, [deviceSelectionTrigger, token]);
-
+  // Keep your deviceSelectionTrigger effect as is
+  useEffect(() => {
+    if (token) {
+      fetchDevices();
+    }
+  }, [deviceSelectionTrigger, token]);
 
   const handleDeviceSelect = async (deviceId: string) => {
     try {
@@ -285,7 +249,6 @@ useEffect(() => {
     }
 
     try {
-   
       if (!token) throw new Error("No authentication token found");
 
       const res = await fetch(
@@ -391,7 +354,45 @@ useEffect(() => {
   const refreshDevices = async () => {
     await fetchDevices();
   };
+  const saveDevice = async (deviceName: string) => {
+    try {
+      if (!token) throw new Error("No authentication token found");
 
+      const payload = {
+        name: deviceName,
+        serviceUuid: null,
+        measurementCharUuid: null,
+        logReadCharUuid: null,
+        setTimeCharUuid: null,
+        ledControlCharUuid: null,
+        sleepControlCharUuid: null,
+        alarmCharUuid: null,
+      };
+
+      const res = await fetch(`${API_BASE_URL}/api/device/create`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error("Failed to save device");
+
+      addToast({ title: "Device created successfully", color: "success" });
+      setShowCreateModal(false);
+
+      //  Refresh list
+      await fetchDevices();
+
+      // move pagination to the *last* device (newly added one)
+      setPage((prev) => devices.length + 1);
+    } catch (err) {
+      console.error(err);
+      addToast({ title: "Error saving device", color: "danger" });
+    }
+  };
   return (
     <BluetoothDeviceContext.Provider
       value={{

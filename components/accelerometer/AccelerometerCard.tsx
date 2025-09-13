@@ -19,7 +19,7 @@ export function AccelerometerCard() {
   return (
     <Card className="@container/card relative h-full transition-transform duration-300 pt-5 ease-in-out hover:-translate-y-1.5 hover:cursor-pointer">
       <CardHeader>
-        <CardDescription className="mb-9 xl:text-2xl text-xl">
+        <CardDescription className="mb-9 font-bold text-2xl">
           Accelerometer
         </CardDescription>
 
@@ -31,9 +31,9 @@ export function AccelerometerCard() {
               className="flex items-baseline mr-1  text-[#818cf8] text-sm font-semibold"
             >
            
-              <span className="text-2xl ">{axis.value}</span>
+              <span className="text-2xl font-bold">{axis.value}</span>
              
-              <span className="ml-1 font-extralight text-muted-foreground">
+              <span className=" font-light text-muted-foreground">
                 m/s²
               </span>
             </div>
