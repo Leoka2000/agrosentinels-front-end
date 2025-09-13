@@ -265,7 +265,27 @@ export const BluetoothDeviceProvider: React.FC<{
       if (!res.ok) throw new Error("Failed to delete device");
 
       addToast({ title: "Device deleted successfully", color: "success" });
-      await fetchDevices();
+
+      // Refresh device list
+      const updatedDevicesRes = await fetch(`${API_BASE_URL}/api/device/list`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!updatedDevicesRes.ok) throw new Error("Failed to fetch devices");
+      const updatedDevices: Device[] = await updatedDevicesRes.json();
+      setDevices(updatedDevices);
+
+      // ✅ If the deleted device was active, set a new active device
+      if (updatedDevices.length > 0) {
+        setActiveDeviceId(updatedDevices[0].id.toString());
+        await handleDeviceSelect(updatedDevices[0].id.toString());
+      } else {
+        // No devices left
+        setActiveDeviceId("");
+      }
     } catch (err) {
       console.error(err);
       addToast({ title: "Error deleting device", color: "danger" });
@@ -393,6 +413,7 @@ export const BluetoothDeviceProvider: React.FC<{
       addToast({ title: "Error saving device", color: "danger" });
     }
   };
+
   return (
     <BluetoothDeviceContext.Provider
       value={{

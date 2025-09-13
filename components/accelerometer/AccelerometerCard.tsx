@@ -1,19 +1,18 @@
 "use client";
 
 import { CardAction, CardDescription, CardHeader } from "@/components/ui/card";
-import { Gauge, LineSquiggle } from "lucide-react";
+import { Gauge, TrendingUp, TrendingDown } from "lucide-react";
 import { Card } from "@heroui/card";
 import { Kbd } from "@heroui/kbd";
 import { useBluetoothSensor } from "../../context/useBluetoothSensor";
-import { Divider } from "@heroui/divider";
 
 export function AccelerometerCard() {
   const { deviceMetrics } = useBluetoothSensor();
 
   const axes = [
-    { value: deviceMetrics?.latestAccelX ?? "--" },
-    { value: deviceMetrics?.latestAccelY ?? "--" },
-    { value: deviceMetrics?.latestAccelZ ?? "--" },
+    { label: "X", value: deviceMetrics?.latestAccelX },
+    { label: "Y", value: deviceMetrics?.latestAccelY },
+    { label: "Z", value: deviceMetrics?.latestAccelZ },
   ];
 
   return (
@@ -23,21 +22,31 @@ export function AccelerometerCard() {
           Accelerometer
         </CardDescription>
 
-        {/* Inline layout with spacing */}
-        <div className="flex gap-1 ">
-          {axes.map((axis, i) => (
-            <div
-              key={i}
-              className="flex items-baseline mr-1  text-[#818cf8] text-sm font-semibold"
-            >
-           
-              <span className="text-2xl font-bold">{axis.value}</span>
-             
-              <span className=" font-light text-muted-foreground">
-                m/s²
-              </span>
-            </div>
-          ))}
+        <div className="flex gap-3">
+          {axes.map((axis, i) => {
+            const numericValue = axis.value ?? NaN;
+            return (
+              <div
+                key={i}
+                className="flex relative  flex-col-reverse gap-1 text-[#818cf8] text-sm font-semibold"
+              >
+                <div className="text-2xl flex items-baseline font-bold">
+                   {numericValue != null &&
+                  (numericValue >= 0 ? (
+                    <TrendingUp className="w-4 h-4 absolute -top-1 right-0 text-green-500" />
+                  ) : (
+                    <TrendingDown className="w-4 h-4 absolute -top-1 right-0 text-red-500" />
+                  ))}
+                  {numericValue != null ? numericValue.toFixed(2) : "--"}
+                  <span className="font-light text-sm text-muted-foreground">m/s²</span> 
+                </div>
+
+
+               
+              </div>
+              
+            );
+          })}
         </div>
 
         <CardAction>

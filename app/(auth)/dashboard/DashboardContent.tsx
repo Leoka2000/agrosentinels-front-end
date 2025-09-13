@@ -74,23 +74,23 @@ const DashboardContent: React.FC = () => {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <div className="">
+           <div className="xl:p-14 sm:p-6 p-4">
             <div className="flex justify-center mb-5 flex-col">
               <Skeleton className="h-8 w-1/3 rounded-lg" />
               <Skeleton className="h-4 w-2/3 mt-2 rounded-lg" />
             </div>
 
-            <div className="flex justify-baseline gap-1 mb-7 ">
+            <div className="flex justify-baseline gap-1 mb-7 "> {/* MB-8 VERY IMPORTANT */}
               {[...Array(9)].map((_, i) => (
                 <Skeleton key={i} className="h-10 w-10 rounded-lg" />
               ))}
             </div>
 
-            <div className="grid auto-rows-min lg:grid-cols-3">
+            <div className="grid auto-rows-min  lg:grid-cols-3 pb-4 gap-4">
               {[...Array(3)].map((_, i) => (
                 <HeroCard
                   key={i}
-                  className="w-full gap-2 relative h-[11.5rem] p-6 pt-7"
+                  className="w-full relative h-[11.5rem] gap-2 p-6 pt-4"
                 >
                   <Skeleton className="h-10 w-3/5 rounded-lg" />
                   <Skeleton className="h-4 w-3/5 rounded-lg" />
@@ -101,9 +101,9 @@ const DashboardContent: React.FC = () => {
               ))}
             </div>
 
-            <div className="grid auto-rows-min relative mb-[7.825rem] lg:grid-cols-4">
+            <div className="grid auto-rows-min relative mb-[7.825rem] lg:grid-cols-4 gap-4  ">
               {[...Array(4)].map((_, i) => (
-                <HeroCard key={i} className="w-full gap-2 h-[10rem] p-6 pt-7">
+                <HeroCard key={i} className="w-full gap-2 h-[10rem] p-6 pt-4">
                   <Skeleton className="h-10 w-3/5 rounded-lg" />
                   <Skeleton className="h-4 w-3/5 rounded-lg" />
                   <Skeleton className="h-4 w-4/5 rounded-lg" />
@@ -130,7 +130,7 @@ const DashboardContent: React.FC = () => {
   }
 
   return (
-    <div className="">
+    <div className="xl:p-14 sm:p-6 p-4">
       {/* Header */}
       <div className="flex justify-center mb-5   flex-col">
         <h2 className="text-2xl font-bold">Dashboard</h2>
@@ -140,7 +140,7 @@ const DashboardContent: React.FC = () => {
       </div>
 
       {/* Pagination */}
-      <div className="flex justify-baseline mb-8  ">
+      <div className="flex justify-baseline mb-8  ">       {/* MB-8 VERY IMPORTANT */}
         <Pagination
           color="success"
           total={devices.length}
@@ -163,7 +163,7 @@ const DashboardContent: React.FC = () => {
               >
                 <Card className="w-full">
                   <CardContent style={{ padding: "0" }}>
-                    <div className="grid auto-rows-min lg:grid-cols-3">
+                    <div className="grid auto-rows-min lg:grid-cols-3 space-x-4 space-y-4">
                       <div className="h-[11.5rem]">
                         <AmplitudeCard />
                       </div>
@@ -175,16 +175,16 @@ const DashboardContent: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 space-x-4 space-y-4">
                       <TemperatureCard />
                       <VoltageCard />
                       <TimestampCard />
                       <AlertCard />
                     </div>
                   </CardContent>
-                  <CardContent style={{ padding: "0" }} className="mb-10">
+                  <CardContent style={{ padding: "0" }} className="">
                     <div className="flex md:flex-row flex-col items-baseline justify-between w-full">
-                      <div className="flex justify-between items-center space-x-2 mb-4">
+                      <div className="flex justify-between items-center space-x-2 mb-2">
                         <Kbd className="p-2">
                           <Bluetooth size={22} />
                         </Kbd>

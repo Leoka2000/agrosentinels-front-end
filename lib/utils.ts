@@ -88,11 +88,32 @@ export function parseAccelerometerHex(hexString: string) {
   const yHex = cleanHex.slice(16, 20);
   const zHex = cleanHex.slice(20, 24);
 
-  const x = parseInt(xHex, 16);
-  const y = parseInt(yHex, 16);
-  const z = parseInt(zHex, 16);
+  // Helper: parse signed 16-bit integer (two's complement)
+  function hexToSignedInt(hex: string) {
+    let val = parseInt(hex, 16);
+    if (val > 0x7fff) val -= 0x10000; // convert to negative if MSB set
+    return val;
+  }
 
-  console.log(`📏 Accelerometer values -> X: ${x}, Y: ${y}, Z: ${z}`);
+  const rawX = hexToSignedInt(xHex);
+  const rawY = hexToSignedInt(yHex);
+  const rawZ = hexToSignedInt(zHex);
+
+  // Piezo sensor scaling: ±2G full scale
+  // Convert raw 16-bit signed integer -> m/s²
+  const fullScaleG = 2; // ±2G
+  const gToMs2 = 9.80665; // 1G = 9.80665 m/s²
+  const scaleFactor = (fullScaleG * gToMs2) / 32768;
+
+  const x = rawX * scaleFactor;
+  const y = rawY * scaleFactor;
+  const z = rawZ * scaleFactor;
+
+  console.log(
+    `📏 Accelerometer values -> X: ${x.toFixed(2)}, Y: ${y.toFixed(
+      2
+    )}, Z: ${z.toFixed(2)} m/s²`
+  );
 
   return { x, y, z };
 }

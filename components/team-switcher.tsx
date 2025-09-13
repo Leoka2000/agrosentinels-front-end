@@ -26,9 +26,9 @@ export function DeviceSwitcher() {
     saveDevice,
     setShowCreateModal,
     showCreateModal,
-    setShowRegisterModal,
     devices,
     activeDeviceId,
+    deleteDevice, // ✅ get deleteDevice from context
   } = useBluetoothDevice();
 
   // Find the currently active device from the context
@@ -102,7 +102,7 @@ export function DeviceSwitcher() {
                 <DropdownItem
                   startContent={<Trash2 className="size-4 ml-1 text-[#f31260]" />}
                   className="font-medium text-[#f31260] hover:text-[#f31260] dark:hover:text-[#f31260]"
-                  onPress={() => alert(`⚠️ Deleting device: ${activeDevice.name}`)}
+                  onPress={deleteDevice} // ✅ call deleteDevice from context
                 >
                   Delete Device
                 </DropdownItem>
