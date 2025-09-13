@@ -74,23 +74,25 @@ const DashboardContent: React.FC = () => {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.4 }}
         >
-           <div className="xl:p-14 sm:p-6 p-4">
+          <div className="xl:p-14 sm:p-6 p-4">
             <div className="flex justify-center mb-5 flex-col">
               <Skeleton className="h-8 w-1/3 rounded-lg" />
               <Skeleton className="h-4 w-2/3 mt-2 rounded-lg" />
             </div>
 
-            <div className="flex justify-baseline gap-1 mb-7 "> {/* MB-8 VERY IMPORTANT */}
+            <div className="flex justify-baseline gap-1 mb-7 ">
+              {" "}
+              {/* MB-8 VERY IMPORTANT */}
               {[...Array(9)].map((_, i) => (
                 <Skeleton key={i} className="h-10 w-10 rounded-lg" />
               ))}
             </div>
 
-            <div className="grid auto-rows-min  lg:grid-cols-3 pb-4 gap-4">
+            <div className="grid auto-rows-min lg:grid-cols-3 pb-4 gap-4">
               {[...Array(3)].map((_, i) => (
                 <HeroCard
                   key={i}
-                  className="w-full relative h-[11.5rem] gap-2 p-6 pt-4"
+                  className="w-full relative h-[11.5rem] gap-2 p-6 pt-8"
                 >
                   <Skeleton className="h-10 w-3/5 rounded-lg" />
                   <Skeleton className="h-4 w-3/5 rounded-lg" />
@@ -140,7 +142,9 @@ const DashboardContent: React.FC = () => {
       </div>
 
       {/* Pagination */}
-      <div className="flex justify-baseline mb-8  ">       {/* MB-8 VERY IMPORTANT */}
+      <div className="flex justify-baseline mb-8  ">
+        {" "}
+        {/* MB-8 VERY IMPORTANT */}
         <Pagination
           color="success"
           total={devices.length}
@@ -176,10 +180,18 @@ const DashboardContent: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 space-x-4 space-y-4">
-                      <TemperatureCard />
-                      <VoltageCard />
-                      <TimestampCard />
-                      <AlertCard />
+                      <div className="h-[10rem] rounded-xl">
+                        <TemperatureCard />
+                      </div>
+                      <div className="h-[10rem] rounded-xl">
+                        <VoltageCard />
+                      </div>
+                      <div className="h-[10rem] rounded-xl">
+                        <TimestampCard />
+                      </div>
+                      <div className="h-[10rem] rounded-xl">
+                        <AlertCard />
+                      </div>
                     </div>
                   </CardContent>
                   <CardContent style={{ padding: "0" }} className="">

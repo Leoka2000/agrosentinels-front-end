@@ -14,7 +14,7 @@ import { AlarmClockCheck, BatteryFull, ThermometerSun, Timer } from "lucide-reac
 
 export function TimestampCard() {
   return (
-    <Card className="@container/card h-[10rem] pt-5 transition-transform duration-300 ease-in-out  hover:-translate-y-1.5 hover:cursor-pointer">
+    <Card className="@container/card h-full  pt-5 transition-transform duration-300 ease-in-out  hover:-translate-y-1.5 hover:cursor-pointer">
       <CardHeader>
         <CardDescription className="mb-5 font-bold text-xl ">
           Last update

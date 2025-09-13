@@ -172,7 +172,6 @@ export const AmplitudeChart = () => {
                 className="w-[220px]"
                 nameKey="amplitude"
                 labelFormatter={(value: any) => value}
-                valueFormatter={(value: number) => `${value} m/s²`}
               />
             }
           />

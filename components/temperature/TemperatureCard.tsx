@@ -15,7 +15,7 @@ export function TemperatureCard() {
   const { deviceMetrics } = useBluetoothSensor();
 
   return (
-    <Card className="@container/card relative h-[10rem] transition-transform duration-300 ease-in-out pt-5 hover:-translate-y-1.5 hover:cursor-pointer">
+    <Card className="@container/card relative h-full transition-transform duration-300 ease-in-out pt-5 hover:-translate-y-1.5 hover:cursor-pointer">
       <CardHeader>
         <CardDescription className="mb-7 font-bold text-xl">Temperature</CardDescription>
         <CardTitle className="text-3xl font-semibold text-[#db2777] tabular-nums">
