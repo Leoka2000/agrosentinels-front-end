@@ -20,8 +20,9 @@ export function VoltageCard() {
         <CardDescription className="mb-7  text-xl">Voltage</CardDescription>
         <CardTitle className="text-3xl font-semibold dark:text-[#fff822] text-[#b4d10e] tabular-nums">
           {deviceMetrics?.latestVoltage
-            ? `${deviceMetrics.latestVoltage.toFixed(1)} V`
+            ? `${deviceMetrics.latestVoltage.toFixed(1)} `
             : "--"}
+               <span className="text-base  font-extralight text-muted-foreground">V</span>
         </CardTitle>
         <CardAction>
            <Kbd className="p-1.5 absolute top-5 right-5">

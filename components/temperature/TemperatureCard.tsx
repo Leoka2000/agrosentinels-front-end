@@ -20,8 +20,9 @@ export function TemperatureCard() {
         <CardDescription className="mb-7 text-xl">Temperature</CardDescription>
         <CardTitle className="text-3xl font-semibold text-[#db2777] tabular-nums">
           {deviceMetrics?.latestTemperature
-            ? `${deviceMetrics.latestTemperature.toFixed(1)} °C`
+            ? `${deviceMetrics.latestTemperature.toFixed(1)} `
             : "--"}
+            <span className="text-base  font-extralight text-muted-foreground">°C</span>
         </CardTitle>
         <CardAction>
           <Kbd className="p-1.5 absolute top-5 right-5">

@@ -61,7 +61,7 @@ const DashboardContent: React.FC = () => {
 
   if (isLayoutLoading) {
     return (
-      <div className="gap-4 md:p-10 p-4">
+      <div className="gap-4 md:p-18 p-4">
         <div className="flex justify-center mb-5  flex-col">
           <Skeleton className="h-8 w-1/3 rounded-lg" />
           <Skeleton className="h-4 w-2/3 mt-2 rounded-lg" />
@@ -110,7 +110,7 @@ const DashboardContent: React.FC = () => {
   }
 
   return (
-    <div className="mb-1 md:p-10 p-4">
+    <div className="mb-1 xl:p-18 p-4">
       {/* Header */}
       <div className="flex justify-center mb-5   flex-col">
         <h2 className="text-2xl font-bold">Dashboard</h2>
