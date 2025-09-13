@@ -18,9 +18,7 @@ import {
 } from "@/components/ui/chart";
 import { getToken } from "@/lib/auth";
 import { Kbd } from "@heroui/kbd";
-import { Funnel } from "lucide-react";
-
-
+import { Activity, Funnel } from "lucide-react";
 
 interface AmplitudeDataPoint {
   ampl1: number;
@@ -51,21 +49,13 @@ export const AmplitudeChart = () => {
   const [deviceId, setDeviceId] = React.useState<number | null>(null);
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-  const statusColorClass =
-    status === "Disconnected"
-      ? "text-red-600 dark:text-red-400"
-      : "text-green-600 dark:text-green-300";
-
   // Fetch active device
   useEffect(() => {
     const fetchActiveDevice = async () => {
       try {
         const token = await getToken();
         const res = await fetch(`${API_BASE_URL}/api/device/active`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error("Failed to fetch active device");
         const body = await res.json();
@@ -86,22 +76,25 @@ export const AmplitudeChart = () => {
         const token = await getToken();
         const res = await fetch(
           `${API_BASE_URL}/api/amplitude/history?range=${range}&deviceId=${deviceId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         if (!res.ok) throw new Error("Failed to fetch amplitude history");
         const body: AmplitudeDataPoint[] = await res.json();
 
         const formattedData = body.map((point) => ({
           ...point,
-          date: new Date(Number(point.timestamp) * 1000).toISOString(),
+          date: new Date(Number(point.timestamp) * 1000).toLocaleString(
+            "en-GB",
+            {
+              day: "2-digit",
+              month: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            }
+          ),
         }));
 
-        console.log("Formatted Amplitude Data:", formattedData);
         setData(formattedData);
       } catch (err) {
         console.error(err);
@@ -114,17 +107,14 @@ export const AmplitudeChart = () => {
   return (
     <Card className="p-4">
       <CardBody className="flex z-10 flex-col items-stretch !p-0 sm:flex-row">
-        <div className="flex flex-1 flex-col justify-center gap-1 py-4 mb-4 px-6 pb-3 sm:pb-0">
-          <h1 className="2xl font-bold">Amplitude</h1>
-          <div className="flex items-center justify-between">
-            <p className="leading-4 text-sm py-1">
-              <span className={`text-sm font-semibold ${statusColorClass}`}>
-                {status}
-              </span>
-            </p>
-          </div>
+        <div className="flex flex-1 items-center  justify-start h-full gap-1 py-4 mb-4 px-6 pb-3 sm:pb-0">
+          <Kbd className="p-2 mr-3 ">
+            <Activity size={18} strokeWidth={1.7} />
+          </Kbd>
+          <h1 className="text-xl font-light ">Amplitude</h1>
         </div>
 
+        {/* Range Dropdown */}
         <div className="flex flex-col justify-center gap-1 px-6 py-4">
           <Dropdown className="py-1 px-1 border border-default-200 bg-linear-to-br from-white to-default-200 dark:from-default-50 dark:to-black">
             <DropdownTrigger>
@@ -142,10 +132,9 @@ export const AmplitudeChart = () => {
               disallowEmptySelection
               selectionMode="single"
               selectedKeys={new Set([range])}
-              onSelectionChange={(keys) => {
-                const selected = Array.from(keys)[0] as string;
-                setRange(selected);
-              }}
+              onSelectionChange={(keys) =>
+                setRange(Array.from(keys)[0] as string)
+              }
               aria-label="Select data range"
             >
               {ranges.map((r) => (
@@ -156,15 +145,12 @@ export const AmplitudeChart = () => {
         </div>
       </CardBody>
 
+      {/* Chart */}
       <ChartContainer
         config={chartConfig}
         className="aspect-auto h-[250px] w-full"
       >
-        <LineChart
-          accessibilityLayer
-          data={data}
-          margin={{ left: 12, right: 12 }}
-        >
+        <LineChart data={data} margin={{ left: 12, right: 12 }}>
           <CartesianGrid vertical={false} />
           <XAxis
             dataKey="date"
@@ -172,33 +158,21 @@ export const AmplitudeChart = () => {
             axisLine={false}
             tickMargin={8}
             minTickGap={32}
-            tickFormatter={(value) => {
-              const date = new Date(value);
-              return date.toLocaleTimeString("en-GB", {
-                hour: "2-digit",
-                minute: "2-digit",
-              });
-            }}
           />
           <YAxis
             tickLine={false}
             axisLine={false}
             tickMargin={8}
             domain={["auto", "auto"]}
+            tickFormatter={(value) => `${value} m/s²`}
           />
           <ChartTooltip
             content={
               <ChartTooltipContent
                 className="w-[220px]"
                 nameKey="amplitude"
-                labelFormatter={(value: any) =>
-                  new Date(value).toLocaleString("en-GB", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                }
+                labelFormatter={(value: any) => value}
+                valueFormatter={(value: number) => `${value} m/s²`}
               />
             }
           />

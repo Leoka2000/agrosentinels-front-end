@@ -40,6 +40,10 @@ import { PlaceholderChart } from "@/components/PlaceholderChart";
 import { useBluetoothDevice } from "@/context/BluetoothDeviceContext";
 import { Bluetooth } from "lucide-react";
 import { Skeleton } from "@heroui/skeleton";
+import { VoltageCard } from "@/components/voltage/VoltageCard";
+import { TemperatureCard } from "@/components/temperature/TemperatureCard";
+import { TimestampCard } from "@/components/TimestampCard";
+import { AlertCard } from "@/components/AlertCard";
 
 const DashboardContent: React.FC = () => {
   const {
@@ -61,7 +65,8 @@ const DashboardContent: React.FC = () => {
 
   if (isLayoutLoading) {
     return (
-      <div className="gap-4 md:p-18 p-4">
+
+           <div className="mb-1 gap-4 md:p-18 sm:p-6 2xl:p-32 p-4">
         <div className="flex justify-center mb-5  flex-col">
           <Skeleton className="h-8 w-1/3 rounded-lg" />
           <Skeleton className="h-4 w-2/3 mt-2 rounded-lg" />
@@ -110,7 +115,7 @@ const DashboardContent: React.FC = () => {
   }
 
   return (
-    <div className="mb-1 xl:p-18 p-4">
+    <div className="mb-1 md:p-18 sm:p-6 2xl:p-32 p-4">
       {/* Header */}
       <div className="flex justify-center mb-5   flex-col">
         <h2 className="text-2xl font-bold">Dashboard</h2>
@@ -135,7 +140,7 @@ const DashboardContent: React.FC = () => {
           {currentDevice && (
             <Card className=" w-full">
               <CardContent style={{ padding: "0" }}>
-                <div className="grid auto-rows-min gap-4 lg:grid-cols-3">
+                <div className="grid auto-rows-min gap-4  space-x-2 mb-2 lg:grid-cols-3">
                   <div className="h-[11.5rem]">
                     <AmplitudeCard />
                   </div>
@@ -147,7 +152,15 @@ const DashboardContent: React.FC = () => {
                   </div>
                 </div>
 
-                <BottomCards />
+             <div className="grid grid-cols-1 space-x-2 md:grid-cols-2 py-4 lg:grid-cols-4 gap-4">
+                   <TemperatureCard />
+             
+                   <VoltageCard />
+             
+                   <TimestampCard />
+             
+                   <AlertCard />
+                 </div>
               </CardContent>
               <CardContent style={{ padding: "0" }} className="mb-10">
                 <div className="flex md:flex-row flex-col items-baseline justify-between w-full">

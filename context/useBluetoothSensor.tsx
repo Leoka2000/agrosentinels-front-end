@@ -347,7 +347,7 @@ export const BluetoothSensorProvider = ({
             console.log("📡 Measurement received (hex):", hexString);
 
             const numericDeviceId = activeDevice.deviceId;
-            const token = getToken();
+            
 
             // Parse timestamp & sensor values
             const unixTimestamp = parseTimestampHex(hexString);
@@ -532,7 +532,7 @@ export const BluetoothSensorProvider = ({
     }
 
     const numericDeviceId = activeDevice.deviceId;
-    const token = getToken();
+  
 
     const PACKET_HEX_LEN = 480; // 240 bytes * 2 hex chars
     const MEAS_HEX_LEN = 60; // 30 bytes per measurement slot

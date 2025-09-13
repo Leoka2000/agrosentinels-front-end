@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/chart";
 import { getToken } from "@/lib/auth";
 import { Kbd } from "@heroui/kbd";
-import { Funnel } from "lucide-react";
+import { BatteryFull, Funnel, ThermometerSun } from "lucide-react";
 
 
 interface VoltageDataPoint {
@@ -107,13 +107,12 @@ export const VoltageChart = () => {
   return (
     <Card className="p-4 ">
       <CardBody className="flex z-10 flex-col items-stretch !p-0 sm:flex-row">
-        <div className="flex flex-1 flex-col justify-center gap-1 py-4 mb-4 px-6 pb-3 sm:pb-0">
-          <h1 className="2xl font-bold">Battery Voltage</h1>
-          <div className="flex items-center justify-between">
-            <p className="leading-4 text-sm py-1">
-              <span className={`text-sm font-semibold ${statusColorClass}`}>{status}</span>
-            </p>
-          </div>
+        <div className="flex flex-1 items-center  justify-start h-full gap-1 py-4 mb-4 px-6 pb-3 sm:pb-0">
+           <Kbd className="p-2 mr-3 ">
+            <BatteryFull  size={18}  strokeWidth={1.7} />
+          </Kbd>
+          <h1 className="text-xl font-light ">Battery Voltage</h1>
+         
         </div>
 
         <div className="flex flex-col justify-center gap-1 px-6 py-4">

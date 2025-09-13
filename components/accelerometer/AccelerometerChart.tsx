@@ -1,6 +1,6 @@
 "use client";
 
-import  React, {useEffect} from "react";
+import React, { useEffect } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   Dropdown,
@@ -18,20 +18,19 @@ import {
 } from "@/components/ui/chart";
 import { getToken } from "@/lib/auth";
 import { Kbd } from "@heroui/kbd";
-import { Funnel } from "lucide-react";
-
+import { Funnel, Gauge, LineSquiggle } from "lucide-react";
 
 interface AccelerometerDataPoint {
   x: number;
   y: number;
   z: number;
-  timestamp: string; 
-  date?: string; 
+  timestamp: string;
+  date?: string;
 }
 
 const chartConfig = {
-  x: { label: "X Axis", color: "#f472b6" }, 
-  y: { label: "Y Axis", color: "#34d399" }, 
+  x: { label: "X Axis", color: "#f472b6" },
+  y: { label: "Y Axis", color: "#34d399" },
   z: { label: "Z Axis", color: "#60a5fa" },
 } satisfies ChartConfig;
 
@@ -73,7 +72,6 @@ export const AccelerometerChart = () => {
     fetchActiveDevice();
   }, [API_BASE_URL]);
 
-
   useEffect(() => {
     if (!deviceId) return;
 
@@ -91,7 +89,6 @@ export const AccelerometerChart = () => {
         );
         if (!res.ok) throw new Error("Failed to fetch accelerometer history");
         const body: AccelerometerDataPoint[] = await res.json();
-
 
         const formattedData = body.map((point) => ({
           ...point,
@@ -116,17 +113,13 @@ export const AccelerometerChart = () => {
   return (
     <Card className="p-4">
       <CardBody className="flex z-10 flex-col items-stretch !p-0 sm:flex-row">
-        <div className="flex flex-1 flex-col justify-center gap-1 py-4 mb-4 px-6 pb-3 sm:pb-0">
-          <h1 className="2xl font-bold">Accelerometer</h1>
-          <div className="flex items-center justify-between">
-            <p className="leading-4 text-sm py-1">
-              <span className={`text-sm font-semibold ${statusColorClass}`}>
-                {status}
-              </span>
-            </p>
-          </div>
+        <div className="flex flex-1 items-center  justify-start h-full gap-1 py-4 mb-4 px-6 pb-3 sm:pb-0">
+          <Kbd className="p-2 mr-3 ">
+            <Gauge size={18} strokeWidth={1.7} />
+            
+          </Kbd>
+          <h1 className="text-xl font-light ">Accelerometer</h1>
         </div>
-
         <div className="flex flex-col justify-center gap-1 px-6 py-4">
           <Dropdown className="py-1 px-1 border border-default-200 bg-linear-to-br from-white to-default-200 dark:from-default-50 dark:to-black">
             <DropdownTrigger>
@@ -183,7 +176,7 @@ export const AccelerometerChart = () => {
             axisLine={false}
             tickMargin={8}
             domain={["auto", "auto"]}
-            tickFormatter={(value) => `${value}`}
+            tickFormatter={(value) => `${value} m/s²`}
           />
           <XAxis
             dataKey="date"
