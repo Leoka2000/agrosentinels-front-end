@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@heroui/button";
 import { Card as HeroCard } from "@heroui/card";
 import {
@@ -39,14 +39,19 @@ import { PlaceholderCards } from "@/components/PlaceholderCards";
 import { PlaceholderChart } from "@/components/PlaceholderChart";
 
 import { useBluetoothDevice } from "@/context/BluetoothDeviceContext";
-import { Bluetooth } from "lucide-react";
+import { Bluetooth, SquarePlus } from "lucide-react";
 import { Skeleton } from "@heroui/skeleton";
 import { VoltageCard } from "@/components/voltage/VoltageCard";
 import { TemperatureCard } from "@/components/temperature/TemperatureCard";
 import { TimestampCard } from "@/components/TimestampCard";
 import { AlertCard } from "@/components/AlertCard";
+import { useAuth } from "@/context/AuthContext";
 
 const DashboardContent: React.FC = () => {
+  const [user, setUser] = useState<any>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { token } = useAuth();
   const {
     devices,
     page,
@@ -60,9 +65,96 @@ const DashboardContent: React.FC = () => {
     form,
     isScanning,
     isRegistering,
+      showCreateModal,       
+    setShowCreateModal, 
   } = useBluetoothDevice();
 
   const currentDevice = devices[page - 1];
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        if (!token) {
+          throw new Error("No auth token found");
+        }
+
+        const res = await fetch("http://localhost:8080/users/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch user data");
+        }
+
+        const data = await res.json();
+        setUser(data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoadingUser(false);
+      }
+    };
+
+    fetchUser();
+  }, []);
+  if (!user?.hasCreatedFirstDevice) {
+    return (
+      <div className="mx-auto w-full">
+        <Card className="px-8 py-6 w-full relative overflow-hidden">
+          <div className="absolute inset-0 flex flex-col h-full items-center justify-center bg-white/900 dark:bg-neutral/90 backdrop-blur-xs z-10">
+            <div className="absolute top-28 shadow-2xl border border-neutral-300 dark:border-neutral-800 rounded-xl p-10 px-8 bg-neutral-50 dark:bg-neutral-950 flex flex-col items-center">
+              <Alert
+                color="warning"
+                title="No devices found"
+                description="Please create and register your first device"
+              ></Alert>
+              <Button
+                variant={"shadow"}
+                color="success"
+                className="w-full mt-8"
+                endContent={<SquarePlus size={16} />}
+              >Create device</Button>
+            </div>
+          </div>
+          <CardContent style={{ padding: "0" }}>
+            <div className="grid auto-rows-min gap-4  space-x-2 mb-2 lg:grid-cols-3">
+              <div className="h-[11.5rem]">
+                <AmplitudeCard />
+              </div>
+              <div className="h-[11.5rem] rounded-xl">
+                <AccelerometerCard />
+              </div>
+              <div className="h-[11.5rem] rounded-xl">
+                <FrequencyCard />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 space-x-2 md:grid-cols-2 py-4 lg:grid-cols-4 gap-4">
+              <TemperatureCard />
+
+              <VoltageCard />
+
+              <TimestampCard />
+
+              <AlertCard />
+            </div>
+          </CardContent>
+          <CardContent style={{ padding: "0" }} className="mb-10">
+            <div className="flex md:flex-row flex-col items-baseline justify-between w-full">
+              <div className="flex justify-between items-center space-x-2 mb-4">
+                <Kbd className="p-2">
+                  <Bluetooth size={22} />
+                </Kbd>
+                <span className="font-medium text-xl"></span>
+              </div>
+              <BluetoothConnectButton />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLayoutLoading) {
     return (
@@ -280,9 +372,7 @@ const DashboardContent: React.FC = () => {
                   <Kbd className="p-2">
                     <Bluetooth size={22} />
                   </Kbd>
-                  <span className="font-medium text-xl">
-            
-                  </span>
+                  <span className="font-medium text-xl"></span>
                 </div>
                 <BluetoothConnectButton />
               </div>

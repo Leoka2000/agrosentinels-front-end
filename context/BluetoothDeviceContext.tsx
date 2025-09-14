@@ -106,45 +106,58 @@ export const BluetoothDeviceProvider: React.FC<{
   const { token } = useAuth();
 
   const fetchActiveDevice = async () => {
-  if (!token) return; // 🚀 don’t call API without token
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/device/active`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!res.ok) {
-      console.error(`Failed to fetch active device. Status: ${res.status}`);
+    // if no token, ensure layout loading is false and return
+    if (!token) {
+      setIsLayoutLoading(false);
       setIsRegistered(false);
+      setActiveDeviceId("");
       return;
     }
 
-    // Some 404/502 responses return empty bodies → prevent JSON parse error
-    const text = await res.text();
-    if (!text) {
-      console.warn("Active device response body was empty");
+    setIsLayoutLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/device/active`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        console.error(`Failed to fetch active device. Status: ${res.status}`);
+        setIsRegistered(false);
+        setActiveDeviceId("");
+        return;
+      }
+
+      const text = await res.text();
+      if (!text) {
+        // no active device
+        setIsRegistered(false);
+        setActiveDeviceId("");
+        return;
+      }
+
+      const data: ActiveDeviceResponse = JSON.parse(text);
+      setIsRegistered(!!data.registeredDevice);
+      setActiveDeviceId(data.deviceId?.toString() || "");
+    } catch (error) {
+      console.error("Error fetching active device:", error);
       setIsRegistered(false);
-      return;
+      setActiveDeviceId("");
+    } finally {
+      setIsLayoutLoading(false);
+    }
+  };
+
+  // returns the fetched devices array so callers can use fresh data
+  const fetchDevices = async (): Promise<Device[]> => {
+    if (!token) {
+      setDevices([]);
+      return [];
     }
 
-    const data: ActiveDeviceResponse = JSON.parse(text);
-    setIsRegistered(!!data.registeredDevice);
-    setActiveDeviceId(data.deviceId?.toString() || "");
-  } catch (error) {
-    console.error("Error fetching active device:", error);
-    setIsRegistered(false);
-  } finally {
-    setIsLayoutLoading(false);
-  }
-};
-
-  // Fetch devices
-  const fetchDevices = async () => {
-    if (!token) return; // 🚀 don’t call API without token
     try {
       const res = await fetch(`${API_BASE_URL}/api/device/list`, {
         headers: {
@@ -155,41 +168,72 @@ export const BluetoothDeviceProvider: React.FC<{
       if (!res.ok) throw new Error("Failed to fetch devices");
       const data: Device[] = await res.json();
       setDevices(data || []);
+      return data || [];
     } catch (err) {
       console.error(err);
-      
       setDevices([]);
+      return [];
     }
   };
+
   useEffect(() => {
     if (token) {
+      // initial load
       fetchActiveDevice();
       fetchDevices();
+    } else {
+      // ensure not loading if no token
+      setIsLayoutLoading(false);
+      setDevices([]);
+      setActiveDeviceId("");
     }
   }, [token]);
 
-  // Keep your deviceSelectionTrigger effect as is
-
-      useEffect(() => {
+  useEffect(() => {
     if (token) {
       fetchActiveDevice();
     }
   }, [deviceSelectionTrigger, token]);
 
-  
   useEffect(() => {
     if (token) {
       fetchDevices();
     }
   }, [deviceSelectionTrigger, token]);
 
+  // Auto-select a device when page/devices change, but only if there *are* devices
+  useEffect(() => {
+    if (!devices || devices.length === 0) return;
+    // clamp page to valid range
+    const clampedPage = Math.max(1, Math.min(page, devices.length));
+    if (clampedPage !== page) {
+      setPage(clampedPage);
+      return;
+    }
 
+    const currentDevice = devices[clampedPage - 1];
+    if (!currentDevice) return;
+
+    // select only if different and not currently selecting
+    if (
+      !isSelecting &&
+      currentDevice.id.toString() !== activeDeviceId &&
+      token
+    ) {
+      // don't await here, let it run — still guarded internally
+      handleDeviceSelect(currentDevice.id.toString()).catch((e) =>
+        console.error("Auto select error:", e)
+      );
+    }
+  }, [page, devices, isSelecting, activeDeviceId, token]);
 
   const handleDeviceSelect = async (deviceId: string) => {
     try {
       setIsSelecting(true);
       setIsLayoutLoading(true);
       setActiveDeviceId(deviceId);
+
+      if (!token) throw new Error("No authentication token found");
 
       const res = await fetch(
         `${API_BASE_URL}/api/device/select?deviceId=${deviceId}`,
@@ -214,17 +258,9 @@ export const BluetoothDeviceProvider: React.FC<{
       });
     } finally {
       setIsSelecting(false);
+      setIsLayoutLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (devices.length > 0 && page <= devices.length) {
-      const currentDevice = devices[page - 1];
-      if (currentDevice && currentDevice.id.toString() !== activeDeviceId) {
-        handleDeviceSelect(currentDevice.id.toString());
-      }
-    }
-  }, [page, devices]);
 
   const scanForDevices = async () => {
     try {
@@ -434,19 +470,18 @@ export const BluetoothDeviceProvider: React.FC<{
     }
   };
 
-
   // Restore persisted page on mount
-useEffect(() => {
-  const savedPage = localStorage.getItem("activePage");
-  if (savedPage) {
-    setPage(parseInt(savedPage, 10));
-  }
-}, []);
+  useEffect(() => {
+    const savedPage = localStorage.getItem("activePage");
+    if (savedPage) {
+      setPage(parseInt(savedPage, 10));
+    }
+  }, []);
 
-// Persist page whenever it changes
-useEffect(() => {
-  localStorage.setItem("activePage", page.toString());
-}, [page]);
+  // Persist page whenever it changes
+  useEffect(() => {
+    localStorage.setItem("activePage", page.toString());
+  }, [page]);
 
   return (
     <BluetoothDeviceContext.Provider
