@@ -81,7 +81,7 @@ export default function RegisterForm() {
     <div className="w-full mx-auto flex justify-center">
       <Card className="p-10">
         <Form
-          className="flex flex-col w-80 gap-3"
+          className="flex flex-col w-80 mb-3 gap-3"
           validationBehavior="native"
           onSubmit={handleSubmit}
         >

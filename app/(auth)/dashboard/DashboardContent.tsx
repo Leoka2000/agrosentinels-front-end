@@ -159,7 +159,7 @@ const DashboardContent: React.FC = () => {
           <AnimatePresence mode="wait">
             {currentDevice && (
               <motion.div
-                key={currentDevice.id} // 👈 triggers animation when device changes
+                key={currentDevice?.id} // 👈 triggers animation when device changes
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -167,41 +167,41 @@ const DashboardContent: React.FC = () => {
               >
                 <Card className="w-full">
                   <CardContent style={{ padding: "0" }}>
-                    <div className="grid auto-rows-min lg:grid-cols-3 space-x-4 space-y-4">
-                      <div className="h-[11.5rem]">
+                    <div className="grid auto-rows-min lg:grid-cols-3 space-x-4 space-y-4  mb-4 sm:mb-0">
+                      <div className="h-[11.5rem] sm:w-auto w-full">
                         <AmplitudeCard />
                       </div>
-                      <div className="h-[11.5rem] rounded-xl">
+                      <div className="h-[11.5rem] sm:w-auto w-full">
                         <AccelerometerCard />
                       </div>
-                      <div className="h-[11.5rem] rounded-xl">
+                      <div className="h-[11.5rem] sm:w-auto w-full">
                         <FrequencyCard />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 space-x-4 space-y-4">
-                      <div className="h-[10rem] rounded-xl">
+                      <div className="h-[10rem] sm:w-auto w-full">
                         <TemperatureCard />
                       </div>
-                      <div className="h-[10rem] rounded-xl">
+                      <div className="h-[10rem] sm:w-auto w-full">
                         <VoltageCard />
                       </div>
-                      <div className="h-[10rem] rounded-xl">
+                      <div className="h-[10rem] sm:w-auto w-full">
                         <TimestampCard />
                       </div>
-                      <div className="h-[10rem] rounded-xl">
+                      <div className="h-[10rem] sm:w-auto w-full">
                         <AlertCard />
                       </div>
                     </div>
                   </CardContent>
-                  <CardContent style={{ padding: "0" }} className="">
+                  <CardContent style={{ padding: "0" }} className=" mt-5">
                     <div className="flex md:flex-row flex-col items-baseline justify-between w-full">
                       <div className="flex justify-between items-center space-x-2 mb-2">
                         <Kbd className="p-2">
                           <Bluetooth size={22} />
                         </Kbd>
                         <span className="font-medium text-xl">
-                          {currentDevice.name}
+                          {currentDevice?.name}
                         </span>
                       </div>
                       <BluetoothConnectButton />
@@ -281,7 +281,7 @@ const DashboardContent: React.FC = () => {
                     <Bluetooth size={22} />
                   </Kbd>
                   <span className="font-medium text-xl">
-                    {currentDevice.name}
+            
                   </span>
                 </div>
                 <BluetoothConnectButton />

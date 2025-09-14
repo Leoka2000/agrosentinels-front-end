@@ -105,28 +105,42 @@ export const BluetoothDeviceProvider: React.FC<{
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
   const { token } = useAuth();
 
-  // Fetch active device
   const fetchActiveDevice = async () => {
-    if (!token) return; // 🚀 don’t call API without token
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/device/active`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!res.ok) throw new Error("Failed to fetch active device");
-      const data: ActiveDeviceResponse = await res.json();
-      setIsRegistered(!!data.registeredDevice);
-      setActiveDeviceId(data.deviceId?.toString() || "");
-    } catch (error) {
-      console.error(error);
+  if (!token) return; // 🚀 don’t call API without token
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/device/active`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) {
+      console.error(`Failed to fetch active device. Status: ${res.status}`);
       setIsRegistered(false);
-    } finally {
-      setIsLayoutLoading(false);
+      return;
     }
-  };
+
+    // Some 404/502 responses return empty bodies → prevent JSON parse error
+    const text = await res.text();
+    if (!text) {
+      console.warn("Active device response body was empty");
+      setIsRegistered(false);
+      return;
+    }
+
+    const data: ActiveDeviceResponse = JSON.parse(text);
+    setIsRegistered(!!data.registeredDevice);
+    setActiveDeviceId(data.deviceId?.toString() || "");
+  } catch (error) {
+    console.error("Error fetching active device:", error);
+    setIsRegistered(false);
+  } finally {
+    setIsLayoutLoading(false);
+  }
+};
 
   // Fetch devices
   const fetchDevices = async () => {
@@ -143,11 +157,7 @@ export const BluetoothDeviceProvider: React.FC<{
       setDevices(data || []);
     } catch (err) {
       console.error(err);
-      addToast({
-        title: "Error",
-        description: "Failed to load devices",
-        color: "danger",
-      });
+      
       setDevices([]);
     }
   };
@@ -159,11 +169,21 @@ export const BluetoothDeviceProvider: React.FC<{
   }, [token]);
 
   // Keep your deviceSelectionTrigger effect as is
+
+      useEffect(() => {
+    if (token) {
+      fetchActiveDevice();
+    }
+  }, [deviceSelectionTrigger, token]);
+
+  
   useEffect(() => {
     if (token) {
       fetchDevices();
     }
   }, [deviceSelectionTrigger, token]);
+
+
 
   const handleDeviceSelect = async (deviceId: string) => {
     try {

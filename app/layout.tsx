@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   },
   description: siteConfig.description,
   icons: {
-    icon: "/favicon.ico",
+    icon: "/as-logo.png",
   },
 };
 
@@ -43,7 +43,7 @@ export default function RootLayout({
             />
         
 
-        <link rel="icon" href="/agrosentinels-logo.png" sizes="any" />
+        <link rel="icon" href="/as-logo.png" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body

@@ -130,16 +130,45 @@ export const BluetoothSensorProvider = ({
   // ---------------- fetch active device logic ----------------
   const fetchActiveDevice = useCallback(async () => {
     if (!token) return null; // 🚀 don't call API without token
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/device/active`, {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error(response.statusText);
 
-      const data = await response.json();
+      if (!response.ok) {
+        console.error(
+          `Failed to fetch active device. Status: ${response.status}`
+        );
+        setActiveDevice(null);
+        setDeviceMetrics(null);
+        return null;
+      }
 
-      // Map response to ActiveDevice and DeviceMetrics
+      // ✅ handle empty response bodies (e.g. 404, 502, etc.)
+      const text = await response.text();
+      if (!text) {
+        console.warn("Active device response body was empty");
+        setActiveDevice(null);
+        setDeviceMetrics(null);
+        return null;
+      }
+
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch (parseError) {
+        console.error(
+          "Failed to parse active device response as JSON:",
+          parseError
+        );
+        setActiveDevice(null);
+        setDeviceMetrics(null);
+        return null;
+      }
+
+      // Map response to ActiveDevice
       const activeDeviceObj: ActiveDevice = {
         deviceId: data.deviceId,
         deviceName: data.deviceName,
@@ -156,6 +185,7 @@ export const BluetoothSensorProvider = ({
       };
       setActiveDevice(activeDeviceObj);
 
+      // Map response to DeviceMetrics
       const metrics: DeviceMetrics = {
         deviceId: data.deviceId,
         deviceName: data.deviceName,
@@ -363,7 +393,6 @@ export const BluetoothSensorProvider = ({
             console.log("📡 Measurement received (hex):", hexString);
 
             const numericDeviceId = activeDevice.deviceId;
-            
 
             // Parse timestamp & sensor values
             const unixTimestamp = parseTimestampHex(hexString);
@@ -548,7 +577,6 @@ export const BluetoothSensorProvider = ({
     }
 
     const numericDeviceId = activeDevice.deviceId;
-  
 
     const PACKET_HEX_LEN = 480; // 240 bytes * 2 hex chars
     const MEAS_HEX_LEN = 60; // 30 bytes per measurement slot
