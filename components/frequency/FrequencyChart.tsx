@@ -173,7 +173,7 @@ export const FrequencyChart = () => {
                 className="w-[220px]"
                 nameKey="frequency"
                 labelFormatter={(value: any) => value}
-                valueFormatter={(value: number) => `${value} Hz`}
+               
               />
             }
           />

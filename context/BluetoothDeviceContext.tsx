@@ -414,6 +414,20 @@ export const BluetoothDeviceProvider: React.FC<{
     }
   };
 
+
+  // Restore persisted page on mount
+useEffect(() => {
+  const savedPage = localStorage.getItem("activePage");
+  if (savedPage) {
+    setPage(parseInt(savedPage, 10));
+  }
+}, []);
+
+// Persist page whenever it changes
+useEffect(() => {
+  localStorage.setItem("activePage", page.toString());
+}, [page]);
+
   return (
     <BluetoothDeviceContext.Provider
       value={{

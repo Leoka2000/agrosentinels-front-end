@@ -85,7 +85,7 @@ export function DeviceSwitcher() {
 
             <DropdownMenu aria-label="Device Switcher">
               {/* Create Device */}
-              <DropdownItem
+              <DropdownItem key={""}
                 startContent={
                   <div className="flex size-6 items-center justify-center rounded-md">
                     <SquarePlus className="size-4" />
@@ -99,7 +99,7 @@ export function DeviceSwitcher() {
 
               {/* Danger Zone */}
               <DropdownSection>
-                <DropdownItem
+                <DropdownItem key={""}
                   startContent={<Trash2 className="size-4 ml-1 text-[#f31260]" />}
                   className="font-medium text-[#f31260] hover:text-[#f31260] dark:hover:text-[#f31260]"
                   onPress={deleteDevice} // ✅ call deleteDevice from context

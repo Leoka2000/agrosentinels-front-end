@@ -137,8 +137,24 @@ export const BluetoothSensorProvider = ({
       });
       if (!response.ok) throw new Error(response.statusText);
 
-      const data: ActiveDevice = await response.json();
-      setActiveDevice(data);
+      const data = await response.json();
+
+      // Map response to ActiveDevice and DeviceMetrics
+      const activeDeviceObj: ActiveDevice = {
+        deviceId: data.deviceId,
+        deviceName: data.deviceName,
+        userId: data.userId,
+        serviceUuid: data.serviceUuid,
+        measurementCharUuid: data.measurementCharUuid,
+        alarmCharUuid: data.alarmCharUuid,
+        ledControlCharUuid: data.ledControlCharUuid,
+        logReadCharUuid: data.logReadCharUuid,
+        setTimeCharUuid: data.setTimeCharUuid,
+        sleepControlCharUuid: data.sleepControlCharUuid,
+        registeredDevice: data.registeredDevice,
+        lastReceivedTimestamp: data.lastReceivedTimestamp,
+      };
+      setActiveDevice(activeDeviceObj);
 
       const metrics: DeviceMetrics = {
         deviceId: data.deviceId,
