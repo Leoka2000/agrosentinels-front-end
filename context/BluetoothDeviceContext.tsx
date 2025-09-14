@@ -10,6 +10,7 @@ declare global {
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { addToast } from "@heroui/toast";
 import { useAuth } from "./AuthContext";
+import { useBluetoothSensor } from "./useBluetoothSensor";
 
 type Device = {
   id: number;
@@ -50,6 +51,7 @@ type BluetoothDeviceContextType = {
   isRegistering: boolean;
   refreshDevices: () => Promise<void>;
   showDeleteModal: boolean;
+  hasCreatedFirstDevice: boolean;
   setShowDeleteModal: React.Dispatch<React.SetStateAction<boolean>>;
   deleteDevice: () => Promise<void>;
 };
@@ -99,11 +101,39 @@ export const BluetoothDeviceProvider: React.FC<{
   const [isScanning, setIsScanning] = useState(false);
   const [localConnected, setLocalConnected] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [hasCreatedFirstDevice, setHasCreatedFirstDevice] =
+    useState<boolean>(true);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const bluetoothSensor = useBluetoothSensor();
   const { token } = useAuth();
+
+  // Fetch the user's device creation status
+  const fetchDeviceStatus = async () => {
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/users/me/device-status`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!res.ok) throw new Error("Failed to fetch device status");
+
+      const data: { hasCreatedFirstDevice: boolean } = await res.json();
+      setHasCreatedFirstDevice(data.hasCreatedFirstDevice);
+    } catch (err) {
+      console.error(err);
+      setHasCreatedFirstDevice(true); // default to true to hide create modal
+    }
+  };
+
+  useEffect(() => {
+    fetchDeviceStatus();
+  }, [token]);
 
   const fetchActiveDevice = async () => {
     // if no token, ensure layout loading is false and return
@@ -295,12 +325,24 @@ export const BluetoothDeviceProvider: React.FC<{
   };
 
   const deleteDevice = async () => {
+    // Prevent deleting if only one device exists
+    if (devices.length <= 1) {
+      addToast({
+        title: "Cannot delete device",
+        description: "You must have at least one device",
+        color: "warning",
+      });
+      setShowDeleteModal(false);
+      return;
+    }
+
     const activeDevice = devices.find(
       (d) => d.id.toString() === activeDeviceId
     );
 
     if (!activeDevice?.id) {
       addToast({ title: "No active device to delete", color: "warning" });
+      setShowDeleteModal(false);
       return;
     }
 
@@ -334,12 +376,11 @@ export const BluetoothDeviceProvider: React.FC<{
       const updatedDevices: Device[] = await updatedDevicesRes.json();
       setDevices(updatedDevices);
 
-      // ✅ If the deleted device was active, set a new active device
+      // Set a new active device if available
       if (updatedDevices.length > 0) {
         setActiveDeviceId(updatedDevices[0].id.toString());
         await handleDeviceSelect(updatedDevices[0].id.toString());
       } else {
-        // No devices left
         setActiveDeviceId("");
       }
     } catch (err) {
@@ -349,7 +390,6 @@ export const BluetoothDeviceProvider: React.FC<{
       setShowDeleteModal(false);
     }
   };
-
   const discoverServices = async (device: BluetoothDevice) => {
     try {
       if (!device.gatt) throw new Error("GATT not available");
@@ -434,6 +474,42 @@ export const BluetoothDeviceProvider: React.FC<{
     try {
       if (!token) throw new Error("No authentication token found");
 
+      // Step 1: Fetch device status
+      const statusRes = await fetch(`${API_BASE_URL}/users/me/device-status`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!statusRes.ok) throw new Error("Failed to fetch device status");
+
+      const statusData: { hasCreatedFirstDevice: boolean } =
+        await statusRes.json();
+
+      // Step 2: If user hasn't created the first device, PATCH it to true
+      if (!statusData.hasCreatedFirstDevice) {
+        const patchRes = await fetch(
+          `${API_BASE_URL}/users/me/device-status?status=true`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (!patchRes.ok) throw new Error("Failed to update device status");
+
+        addToast({ title: "Device status updated to true", color: "success" });
+
+        // ✅ Update local state so UI re-renders
+        setHasCreatedFirstDevice(true);
+      }
+
+      // Step 3: Create the new device
       const payload = {
         name: deviceName,
         serviceUuid: null,
@@ -459,17 +535,21 @@ export const BluetoothDeviceProvider: React.FC<{
       addToast({ title: "Device created successfully", color: "success" });
       setShowCreateModal(false);
 
-      //  Refresh list
-      await fetchDevices();
+      // Step 4: Refresh devices and active device
+      const updatedDevices = await fetchDevices();
+      await fetchActiveDevice();
 
-      // move pagination to the *last* device (newly added one)
-      setPage((prev) => devices.length + 1);
-    } catch (err) {
+      // Step 5: Set page to the newly created device
+      setPage(updatedDevices.length);
+    } catch (err: any) {
       console.error(err);
-      addToast({ title: "Error saving device", color: "danger" });
+      addToast({
+        title: "Error saving device",
+        description: err.message || "",
+        color: "danger",
+      });
     }
   };
-
   // Restore persisted page on mount
   useEffect(() => {
     const savedPage = localStorage.getItem("activePage");
@@ -509,6 +589,7 @@ export const BluetoothDeviceProvider: React.FC<{
         showDeleteModal,
         setShowDeleteModal,
         deleteDevice,
+        hasCreatedFirstDevice,
       }}
     >
       {children}

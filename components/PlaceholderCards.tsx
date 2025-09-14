@@ -11,9 +11,29 @@ import { TemperatureCard } from "./temperature/TemperatureCard";
 
 export function PlaceholderCards() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 py-4 lg:grid-cols-4 gap-4">
-     <TemperatureCard />
-
+    <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+      <Card className="@container/card">
+        <CardHeader>
+          <CardDescription>Total Revenue</CardDescription>
+          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            $1,250.00
+          </CardTitle>
+          <CardAction>
+ 
+              <TrendingUp />
+              +12.5%
+      
+          </CardAction>
+        </CardHeader>
+        <CardFooter className="flex-col items-start gap-1.5 text-sm">
+          <div className="line-clamp-1 flex gap-2 font-medium">
+            Trending up this month <TrendingUp className="size-4" />
+          </div>
+          <div className="text-muted-foreground">
+            Visitors for the last 6 months
+          </div>
+        </CardFooter>
+      </Card>
       <Card className="@container/card">
         <CardHeader>
           <CardDescription>New Customers</CardDescription>
@@ -21,7 +41,10 @@ export function PlaceholderCards() {
             1,234
           </CardTitle>
           <CardAction>
-            <TrendingDown /> -20%
+       
+              <TrendingDown />
+              -20%
+   
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
@@ -33,7 +56,6 @@ export function PlaceholderCards() {
           </div>
         </CardFooter>
       </Card>
-
       <Card className="@container/card">
         <CardHeader>
           <CardDescription>Active Accounts</CardDescription>
@@ -41,7 +63,10 @@ export function PlaceholderCards() {
             45,678
           </CardTitle>
           <CardAction>
-            <TrendingUp /> +12.5%
+     
+              <TrendingUp />
+              +12.5%
+  
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
@@ -51,7 +76,6 @@ export function PlaceholderCards() {
           <div className="text-muted-foreground">Engagement exceed targets</div>
         </CardFooter>
       </Card>
-
       <Card className="@container/card">
         <CardHeader>
           <CardDescription>Growth Rate</CardDescription>
@@ -59,7 +83,10 @@ export function PlaceholderCards() {
             4.5%
           </CardTitle>
           <CardAction>
-            <TrendingUp /> +4.5%
+          
+              <TrendingUp />
+              +4.5%
+    
           </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
