@@ -181,15 +181,32 @@ const BluetoothConnectButton: React.FC = () => {
     }
   }, [isOpen, isLogCaptureComplete, activeDevice, getHistoricalLogs]);
 
-  const handleScan = async () => {
-    if (!activeDevice?.serviceUuid) {
+const handleScan = async () => {
+    if (!activeDevice || !activeDevice.serviceUuid) {
       console.error("❌ Cannot scan: serviceUuid is undefined on activeDevice");
+      addToast({
+        title: "Cannot scan – no registered active device",
+        color: "warning",
+        timeout: 3000,
+        shouldShowTimeoutProgress: true,
+      });
       return;
     }
 
     setIsScanning(true);
-    await scanForDevices(activeDevice.serviceUuid);
-    setIsScanning(false);
+    try {
+      await scanForDevices(activeDevice.serviceUuid);
+    } catch (err) {
+      console.error("❌ Scan failed:", err);
+      addToast({
+        title: "Scan failed",
+        color: "danger",
+        timeout: 3000,
+        shouldShowTimeoutProgress: true,
+      });
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   return (

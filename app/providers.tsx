@@ -30,12 +30,12 @@ export function Providers({ children, themeProps }: ProvidersProps) {
   return (
     <AuthProvider>
       <HeroUIProvider navigate={router.push}>
-        <BluetoothSensorProvider>
-          <BluetoothDeviceProvider>
+        <BluetoothDeviceProvider>
+          <BluetoothSensorProvider>
             <ToastProvider placement="top-right" toastOffset={120} />
             <NextThemesProvider {...themeProps}>{children}</NextThemesProvider>
-          </BluetoothDeviceProvider>
-        </BluetoothSensorProvider>
+          </BluetoothSensorProvider>
+        </BluetoothDeviceProvider>
       </HeroUIProvider>
     </AuthProvider>
   );

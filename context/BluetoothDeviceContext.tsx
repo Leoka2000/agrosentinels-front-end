@@ -15,17 +15,12 @@ import { useBluetoothSensor } from "./useBluetoothSensor";
 type Device = {
   id: number;
   name: string;
-  serviceUuid: string;
-  readNotifyCharacteristicUuid: string;
-  writeCharacteristicUuid: string;
 };
 
 type ActiveDeviceResponse = {
   deviceId: number;
   deviceName: string;
-  serviceUuid: string;
-  readNotifyCharacteristicUuid: string;
-  writeCharacteristicUuid: string;
+
   registeredDevice?: boolean;
 };
 
@@ -54,6 +49,8 @@ type BluetoothDeviceContextType = {
   hasCreatedFirstDevice: boolean;
   setShowDeleteModal: React.Dispatch<React.SetStateAction<boolean>>;
   deleteDevice: () => Promise<void>;
+  refreshTrigger: number;
+  
 };
 
 type BluetoothDevice = {
@@ -85,6 +82,7 @@ export const BluetoothDeviceProvider: React.FC<{
   const [page, setPage] = useState(1);
   const [isLayoutLoading, setIsLayoutLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0); // for registering first time
 
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [currentDeviceBLE, setCurrentDeviceBLE] =
@@ -107,7 +105,7 @@ export const BluetoothDeviceProvider: React.FC<{
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-  const bluetoothSensor = useBluetoothSensor();
+
   const { token } = useAuth();
 
   // Fetch the user's device creation status
@@ -136,11 +134,11 @@ export const BluetoothDeviceProvider: React.FC<{
   }, [token]);
 
   const fetchActiveDevice = async () => {
-    // if no token, ensure layout loading is false and return
     if (!token) {
       setIsLayoutLoading(false);
       setIsRegistered(false);
       setActiveDeviceId("");
+
       return;
     }
 
@@ -158,14 +156,15 @@ export const BluetoothDeviceProvider: React.FC<{
         console.error(`Failed to fetch active device. Status: ${res.status}`);
         setIsRegistered(false);
         setActiveDeviceId("");
+
         return;
       }
 
       const text = await res.text();
       if (!text) {
-        // no active device
         setIsRegistered(false);
         setActiveDeviceId("");
+
         return;
       }
 
@@ -437,7 +436,12 @@ export const BluetoothDeviceProvider: React.FC<{
         body: JSON.stringify(form),
       });
 
-      if (!res.ok) throw new Error("Failed to register device");
+      if (!res.ok) {
+        const errorText = await res.text(); // get backend error message
+        throw new Error(
+          `Failed to register device: ${res.status} ${errorText}`
+        );
+      }
 
       addToast({
         title: "Device Registered",
@@ -453,6 +457,7 @@ export const BluetoothDeviceProvider: React.FC<{
       }
 
       setShowRegisterModal(false);
+      setRefreshTrigger((prev) => (prev === 0 ? 1 : 0));
       await fetchActiveDevice();
       await fetchDevices();
     } catch (err: any) {
@@ -467,9 +472,6 @@ export const BluetoothDeviceProvider: React.FC<{
     }
   };
 
-  const refreshDevices = async () => {
-    await fetchDevices();
-  };
   const saveDevice = async (deviceName: string) => {
     try {
       if (!token) throw new Error("No authentication token found");
@@ -506,6 +508,7 @@ export const BluetoothDeviceProvider: React.FC<{
         addToast({ title: "Device status updated to true", color: "success" });
 
         // ✅ Update local state so UI re-renders
+        setRefreshTrigger((prev) => (prev === 0 ? 1 : 0));
         setHasCreatedFirstDevice(true);
       }
 
@@ -563,6 +566,19 @@ export const BluetoothDeviceProvider: React.FC<{
     localStorage.setItem("activePage", page.toString());
   }, [page]);
 
+  useEffect(() => {
+    if (devices && devices.length > 0) {
+      const currentDevice = devices[page - 1];
+      if (currentDevice && currentDevice.id.toString() !== activeDeviceId) {
+        handleDeviceSelect(currentDevice.id.toString()).catch((e) =>
+          console.error("Page select error:", e)
+        );
+      }
+
+      // 🔥 Force BluetoothSensorContext to refresh its activeDevice
+      setDeviceSelectionTrigger((prev) => prev + 1);
+    }
+  }, [page]);
   return (
     <BluetoothDeviceContext.Provider
       value={{
@@ -585,11 +601,14 @@ export const BluetoothDeviceProvider: React.FC<{
         isScanning,
         localConnected,
         isRegistering,
-        refreshDevices: fetchDevices,
+        refreshDevices: async () => {
+          await fetchDevices();
+        },
         showDeleteModal,
         setShowDeleteModal,
         deleteDevice,
         hasCreatedFirstDevice,
+        refreshTrigger,
       }}
     >
       {children}
