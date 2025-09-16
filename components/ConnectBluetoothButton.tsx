@@ -65,7 +65,11 @@ const BluetoothConnectButton: React.FC = () => {
 
   // Auto-sequence after connection
   useEffect(() => {
-    if (localConnected && activeDevice?.sleepControlCharUuid && activeDevice?.setTimeCharUuid) {
+    if (
+      localConnected &&
+      activeDevice?.sleepControlCharUuid &&
+      activeDevice?.setTimeCharUuid
+    ) {
       const timer1 = setTimeout(async () => {
         try {
           await writeSleepOn(activeDevice.sleepControlCharUuid);
@@ -104,13 +108,31 @@ const BluetoothConnectButton: React.FC = () => {
         }
       }, 3000);
 
+   /*   const timer4 = setTimeout(async () => {
+        try {
+          if (activeDevice.measurementCharUuid) {
+            await startStreaming();
+          }
+        } catch (err) {
+          console.error("❌ Auto log fetch failed:", err);
+        }
+      }, 4000);*/
+
       return () => {
         clearTimeout(timer1);
         clearTimeout(timer2);
         clearTimeout(timer3);
+         /*  clearTimeout(timer4);  */ 
       };
     }
-  }, [localConnected, activeDevice, writeSleepOn, writeSetTime, getHistoricalLogs]);
+  }, [
+    localConnected,
+    activeDevice,
+    writeSleepOn,
+    writeSetTime,
+    getHistoricalLogs,
+    startStreaming,
+  ]);
 
   // Progress animation
   useEffect(() => {
@@ -189,7 +211,11 @@ const BluetoothConnectButton: React.FC = () => {
                 variant="shadow"
                 isDisabled={isScanning}
                 startContent={
-                  isScanning ? <Spinner size="sm" /> : <Bluetooth className="h-4 w-4" />
+                  isScanning ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    <Bluetooth className="h-4 w-4" />
+                  )
                 }
               >
                 {isScanning ? "Scanning..." : "Scan"}
@@ -224,7 +250,10 @@ const BluetoothConnectButton: React.FC = () => {
             />
           )}
           {isLogCaptureComplete && (
-            <Alert color="success" title="All packets collected successfully!" />
+            <Alert
+              color="success"
+              title="All packets collected successfully!"
+            />
           )}
           <p>Packets received: {packetCount}</p>
           {latestParsedMessage && (

@@ -228,7 +228,7 @@ const DashboardContent: React.FC = () => {
       {/* Pagination */}
       <div className="flex justify-baseline mb-8  ">
         {" "}
-        {/* MB-8 VERY IMPORTANT */}
+        {/* MB-8 VERY IMPORTANT FOR LOADING SKELETON PLACEMENT */}
         <Pagination
           color="success"
           total={devices.length}
