@@ -219,6 +219,7 @@ export const BluetoothSensorProvider = ({
       return null;
     }
   }, [API_BASE_URL, token, page, refreshTrigger]);
+
   useEffect(() => {
     if (token) {
       console.log(`🔄 Page changed to: ${page}, fetching active device...`);
@@ -226,11 +227,9 @@ export const BluetoothSensorProvider = ({
     }
   }, [page, token, fetchActiveDevice, refreshTrigger]);
 
-
   const refreshActiveDevice = useCallback(async () => {
     await fetchActiveDevice();
   }, [fetchActiveDevice]);
-
 
   useEffect(() => {
     if (token) {
@@ -317,27 +316,25 @@ export const BluetoothSensorProvider = ({
       return;
     }
 
-    if (!activeDevice) return;
-
-    // Use lastReceivedTimestamp if available, otherwise fallback to current time
-    const unixTimestamp =
-      activeDevice.lastReceivedTimestamp ?? Math.floor(Date.now() / 1000);
-
-    // Convert to 4-byte big-endian
+    const currentTimestamp = Math.floor(Date.now() / 1000); // current time in seconds
     const buffer = new ArrayBuffer(4);
     const view = new DataView(buffer);
-    view.setUint32(0, unixTimestamp, false); // false = big-endian
+    view.setUint32(0, currentTimestamp, false); // big-endian
 
-    await char.writeValue(buffer);
-    addToast({ title: "Timestamp sent (big-endian)", color: "success" });
-    console.log(
-      "⏰ Timestamp sent (big-endian):",
-      unixTimestamp,
-      "hex=",
-      Array.from(new Uint8Array(buffer))
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("")
-    );
+    try {
+      await char.writeValue(buffer);
+      addToast({ title: "Current timestamp sent", color: "success" });
+      console.log(
+        "⏰ Timestamp sent (big-endian hex):",
+        currentTimestamp,
+        Array.from(new Uint8Array(buffer))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("")
+      );
+    } catch (err) {
+      console.error("Failed to write timestamp:", err);
+      addToast({ title: "Failed to write timestamp", color: "danger" });
+    }
   };
 
   // ---------------- Sleep Control ----------------
@@ -389,6 +386,16 @@ export const BluetoothSensorProvider = ({
         streamingIntervalRef.current = null;
       }
 
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const buffer = new ArrayBuffer(4);
+      new DataView(buffer).setUint32(0, currentTimestamp, false); // big-endian
+      await setTimeChar.writeValue(buffer);
+      console.log("⏰ Timestamp sent to MCU:", currentTimestamp);
+
+      // Small delay to let MCU update internal timestamp
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Start notifications
       await measurementChar.startNotifications();
 
       measurementChar.addEventListener(
@@ -406,6 +413,7 @@ export const BluetoothSensorProvider = ({
             const numericDeviceId = activeDevice.deviceId;
 
             // Parse timestamp & sensor values
+            const currentTimestamp = Math.floor(Date.now() / 1000);
             const unixTimestamp = parseTimestampHex(hexString);
             const batteryVoltage = parseBatteryVoltageHex(hexString);
             const temperature = parseTemperatureHex(hexString);
@@ -413,32 +421,32 @@ export const BluetoothSensorProvider = ({
             const frequencies = parseFrequencyHex(hexString);
             const amplitudes = parseAmplitudeHex(hexString);
 
+            // --- ⬇️ UPDATE LOCAL STATE FOR LIVE UI ⬇️ ---
+            setDeviceMetrics((prev) => ({
+              ...prev,
+              deviceId: numericDeviceId,
+              deviceName: activeDevice.deviceName,
+              userId: activeDevice.userId,
+              registeredDevice: activeDevice.registeredDevice,
+              lastReceivedTimestamp: unixTimestamp,
+              latestTemperature: temperature,
+              latestVoltage: batteryVoltage,
+              latestAccelX: accel.x,
+              latestAccelY: accel.y,
+              latestAccelZ: accel.z,
+              latestFreq1: frequencies.freq1,
+              latestFreq2: frequencies.freq2,
+              latestFreq3: frequencies.freq3,
+              latestFreq4: frequencies.freq4,
+              latestAmpl1: amplitudes.ampl1,
+              latestAmpl2: amplitudes.ampl2,
+              latestAmpl3: amplitudes.ampl3,
+              latestAmpl4: amplitudes.ampl4,
+            }));
+
             // ---------------- Update backend last-received timestamp ----------------
-            await fetch(
-              `${API_BASE_URL}/api/device/${numericDeviceId}/last-timestamp?timestamp=${unixTimestamp}`,
-              {
-                method: "PATCH",
-                headers: { Authorization: `Bearer ${token}` },
-              }
-            );
 
-            // Update locally
-            setActiveDevice((prev: any) =>
-              prev ? { ...prev, lastReceivedTimestamp: unixTimestamp } : prev
-            );
-
-            // ---------------- Write timestamp back to device ----------------
-            const buffer = new ArrayBuffer(4);
-            const view = new DataView(buffer);
-            view.setUint32(0, unixTimestamp, false); // big-endian
-            await setTimeChar.writeValue(buffer);
-            console.log(
-              "⏰ Write timestamp to device (hex):",
-              unixTimestamp,
-              Array.from(new Uint8Array(buffer))
-                .map((b) => b.toString(16).padStart(2, "0"))
-                .join("")
-            );
+            // Write current timestamp to the microcontroller (big-endian)
 
             // ---------------- PATCH: update latest values ----------------
             await fetch(`${API_BASE_URL}/api/device/update-latest`, {
@@ -451,6 +459,7 @@ export const BluetoothSensorProvider = ({
                 deviceId: numericDeviceId,
                 temperature,
                 voltage: batteryVoltage,
+                lastReceivedTimestamp: unixTimestamp,
                 accelX: accel.x,
                 accelY: accel.y,
                 accelZ: accel.z,
@@ -599,7 +608,7 @@ export const BluetoothSensorProvider = ({
     const processedTimestamps = new Set<number>();
 
     try {
-      // ✅ Send init timestamp via logReadCharUuid (not setTime)
+      // Send init timestamp via logReadCharUuid (not setTime)
       const ts = Math.floor(Date.now() / 1000);
       const initBuf = new Uint8Array([
         (ts >> 24) & 0xff,
@@ -734,6 +743,28 @@ export const BluetoothSensorProvider = ({
             const frequencies = parseFrequencyHex(measurementHex);
             const amplitudes = parseAmplitudeHex(measurementHex);
 
+            // ---  update local state to get live info ---
+            setDeviceMetrics((prev) => ({
+              ...prev,
+              deviceId: numericDeviceId,
+              deviceName: activeDevice.deviceName,
+              userId: activeDevice.userId,
+              registeredDevice: activeDevice.registeredDevice,
+              lastReceivedTimestamp: unixTimestamp,
+              latestTemperature: temperature,
+              latestVoltage: batteryVoltage,
+              latestAccelX: accel.x,
+              latestAccelY: accel.y,
+              latestAccelZ: accel.z,
+              latestFreq1: frequencies.freq1,
+              latestFreq2: frequencies.freq2,
+              latestFreq3: frequencies.freq3,
+              latestFreq4: frequencies.freq4,
+              latestAmpl1: amplitudes.ampl1,
+              latestAmpl2: amplitudes.ampl2,
+              latestAmpl3: amplitudes.ampl3,
+              latestAmpl4: amplitudes.ampl4,
+            }));
             // Format for UI
             packetFormattedMessages.push(
               formatParsedMeasurementMessage(measurementHex)
