@@ -60,32 +60,17 @@ const BluetoothConnectButton: React.FC = () => {
 
   // Debug: log the active device
   useEffect(() => {
-    console.log("🔹 Active device in context:", activeDevice);
+    console.log("🔹 Active device:", activeDevice);
   }, [activeDevice]);
 
-  // Debug: log isLogCaptureComplete changes
+  // Auto-sequence after connection
   useEffect(() => {
-    console.log("🔄 isLogCaptureComplete changed:", isLogCaptureComplete);
-  }, [isLogCaptureComplete]);
-
-  // Auto-send Sleep ON and timestamp after connection
-  useEffect(() => {
-    if (
-      localConnected &&
-      activeDevice?.sleepControlCharUuid &&
-      activeDevice?.setTimeCharUuid
-    ) {
+    if (localConnected && activeDevice?.sleepControlCharUuid && activeDevice?.setTimeCharUuid) {
       const timer1 = setTimeout(async () => {
         try {
           await writeSleepOn(activeDevice.sleepControlCharUuid);
         } catch (err) {
-          console.error("❌ Failed to send Sleep ON:", err);
-          addToast({
-            title: "Failed to send Sleep ON",
-            color: "danger",
-            timeout: 3000,
-            shouldShowTimeoutProgress: true,
-          });
+          console.error("❌ Failed Sleep ON:", err);
         }
       }, 1000);
 
@@ -93,117 +78,70 @@ const BluetoothConnectButton: React.FC = () => {
         try {
           await writeSetTime(activeDevice.setTimeCharUuid);
         } catch (err) {
-          console.error("❌ Failed to send timestamp after connection:", err);
-          addToast({
-            title: "Failed to send timestamp after connection",
-            color: "danger",
-            timeout: 3000,
-            shouldShowTimeoutProgress: true,
-          });
+          console.error("❌ Failed SetTime:", err);
         }
       }, 2000);
+
+      const timer3 = setTimeout(async () => {
+        try {
+          if (activeDevice.logReadCharUuid) {
+            await getHistoricalLogs(
+              activeDevice.logReadCharUuid,
+              () => {
+                console.log("✅ getHistoricalLogs completed");
+                setIsLogCaptureComplete(true);
+              },
+              (hexString) => {
+                console.log("📥 Packet received:", hexString);
+                setLatestPacket(hexString);
+                setPacketCount((prev) => prev + 1);
+                setProgress(100);
+              }
+            );
+          }
+        } catch (err) {
+          console.error("❌ Auto log fetch failed:", err);
+        }
+      }, 3000);
 
       return () => {
         clearTimeout(timer1);
         clearTimeout(timer2);
+        clearTimeout(timer3);
       };
     }
-  }, [localConnected, activeDevice, writeSleepOn, writeSetTime]);
+  }, [localConnected, activeDevice, writeSleepOn, writeSetTime, getHistoricalLogs]);
 
-  // Progress bar random increase (reach 100% in 60 seconds)
+  // Progress animation
   useEffect(() => {
-    if (isOpen && !isLogCaptureComplete) {
+    if (!isLogCaptureComplete && localConnected) {
       const interval = setInterval(() => {
         setProgress((prev) => {
-          if (prev >= 100) return prev; // Stay at 100 until packet arrives
+          if (prev >= 100) return prev;
           const nextIndex = incrementIndex + 1;
           const increment = increments[incrementIndex] || 0;
           setIncrementIndex(nextIndex >= increments.length ? 0 : nextIndex);
-          return Math.min(prev + increment, 99.9); // Cap below 100
+          return Math.min(prev + increment, 99.9);
         });
-      }, 1000); // Update every 1 second
-
+      }, 1000);
       return () => clearInterval(interval);
     }
-  }, [isOpen, isLogCaptureComplete, incrementIndex, increments]);
+  }, [localConnected, isLogCaptureComplete, incrementIndex, increments]);
 
-  // Reset increments on packet arrival or cycle completion
-  const resetProgressCycle = () => {
-    setProgress(0);
-    setIncrementIndex(0);
-    setIncrements(generateRandomIncrements());
-  };
-
-  // Reset modal state when closing
-  const handleClose = () => {
-    setProgress(0);
-    setPacketCount(0);
-    setIsLogCaptureComplete(false);
-    setLatestPacket(null);
-    setIncrementIndex(0);
-    setIncrements(generateRandomIncrements());
-    onClose();
-  };
-
-  // Fetch packets every 60 seconds
-  useEffect(() => {
-    if (isOpen && !isLogCaptureComplete && activeDevice?.logReadCharUuid) {
-      const fetchPacket = async () => {
-        try {
-          await getHistoricalLogs(
-            activeDevice.logReadCharUuid,
-            () => {
-              console.log("✅ Auto getHistoricalLogs completed");
-              setIsLogCaptureComplete(true);
-            },
-            (hexString) => {
-              console.log(
-                "📥 Packet received in BluetoothConnectButton:",
-                hexString
-              );
-              setLatestPacket(hexString);
-            }
-          );
-          setProgress(100); // Jump to 100% on packet fetch
-          setPacketCount((prev) => prev + 1);
-          setTimeout(resetProgressCycle, 100);
-        } catch (err) {
-          console.error("❌ Failed to fetch packet:", err);
-          addToast({
-            title: "Failed to fetch packet",
-            color: "danger",
-          });
-        }
-      };
-
-      const interval = setInterval(fetchPacket, 60000);
-      return () => clearInterval(interval);
-    }
-  }, [isOpen, isLogCaptureComplete, activeDevice, getHistoricalLogs]);
-
-const handleScan = async () => {
+  const handleScan = async () => {
     if (!activeDevice || !activeDevice.serviceUuid) {
-      console.error("❌ Cannot scan: serviceUuid is undefined on activeDevice");
       addToast({
         title: "Cannot scan – no registered active device",
         color: "warning",
-        timeout: 3000,
-        shouldShowTimeoutProgress: true,
       });
       return;
     }
-
     setIsScanning(true);
     try {
       await scanForDevices(activeDevice.serviceUuid);
     } catch (err) {
       console.error("❌ Scan failed:", err);
-      addToast({
-        title: "Scan failed",
-        color: "danger",
-        timeout: 3000,
-        shouldShowTimeoutProgress: true,
-      });
+      addToast({ title: "Scan failed", color: "danger" });
     } finally {
       setIsScanning(false);
     }
@@ -211,12 +149,15 @@ const handleScan = async () => {
 
   return (
     <div className="flex flex-col pt-3 gap-3">
+      {/* Action Buttons */}
       <div className="flex flex-row flex-wrap w-full items-center pt-3">
-        {/* Left group: all action buttons */}
         <div className="flex flex-row gap-1.5">
-          <Tooltip content="Fetch packets from device">
+          <Tooltip content="Fetch packets manually">
             <Button
-              onPress={onOpen}
+              onPress={() =>
+                activeDevice?.logReadCharUuid &&
+                getHistoricalLogs(activeDevice.logReadCharUuid)
+              }
               color="warning"
               variant="faded"
               isIconOnly
@@ -225,7 +166,6 @@ const handleScan = async () => {
               <ClipboardClock size={18} />
             </Button>
           </Tooltip>
-
           <Tooltip content="Start streaming data">
             <Button
               onPress={() => startStreaming()}
@@ -239,7 +179,7 @@ const handleScan = async () => {
           </Tooltip>
         </div>
 
-        {/* Scan / Disconnect button always on the far right */}
+        {/* Scan / Disconnect */}
         <div className="ml-2">
           {!localConnected ? (
             <Tooltip content="Scan for nearby devices">
@@ -249,11 +189,7 @@ const handleScan = async () => {
                 variant="shadow"
                 isDisabled={isScanning}
                 startContent={
-                  isScanning ? (
-                    <Spinner size="sm" />
-                  ) : (
-                    <Bluetooth className="h-4 w-4" />
-                  )
+                  isScanning ? <Spinner size="sm" /> : <Bluetooth className="h-4 w-4" />
                 }
               >
                 {isScanning ? "Scanning..." : "Scan"}
@@ -273,67 +209,33 @@ const handleScan = async () => {
           )}
         </div>
       </div>
-      <Modal
-        backdrop="blur"
-        className="pb-2"
-        isOpen={isOpen}
-        isDismissable={false} // can't dismiss via clicking backdrop
-        isKeyboardDismissDisabled={true} // can't dismiss via escape key
-        onClose={() => {}} // onClose does nothing so close button is disabled
-      >
-        <ModalContent>
-          {() => (
-            <>
-              <ModalHeader className="flex flex-col gap-3">
-                <span>Fetching Packets</span>
-                {!isLogCaptureComplete && (
-                  <Progress
-                    aria-label="Fetching packet..."
-                    className="w-full"
-                    color="success"
-                    showValueLabel={true}
-                    size="md"
-                    value={progress}
-                  />
-                )}
-              </ModalHeader>
-              <ModalBody>
-                {isLogCaptureComplete ? (
-                  <Alert
-                    color="success"
-                    title="All packets collected successfully!"
-                  />
-                ) : (
-                  <>
-                    <p>Waiting for packet {packetCount + 1}...</p>
-                    {latestParsedMessage && (
-                      <Card className="p-3">
-                        <pre className="text-sm font-mono whitespace-pre-wrap break-words">
-                          Packet {packetCount + 1} Data:
-                          {"\n\n"}
-                          {latestParsedMessage}
-                        </pre>
-                      </Card>
-                    )}
-                  </>
-                )}
-              </ModalBody>
-              {/* Only render Close button if log capture is complete */}
-              {isLogCaptureComplete && (
-                <ModalFooter>
-                  <Button
-                    color="primary"
-                    onPress={handleClose}
-                    className="w-full"
-                  >
-                    Close
-                  </Button>
-                </ModalFooter>
-              )}
-            </>
+
+      {/* Progress + Logs Display */}
+      {localConnected && (
+        <div className="flex flex-col gap-3">
+          {!isLogCaptureComplete && (
+            <Progress
+              aria-label="Fetching packet..."
+              className="w-full"
+              color="success"
+              showValueLabel={true}
+              size="md"
+              value={progress}
+            />
           )}
-        </ModalContent>
-      </Modal>
+          {isLogCaptureComplete && (
+            <Alert color="success" title="All packets collected successfully!" />
+          )}
+          <p>Packets received: {packetCount}</p>
+          {latestParsedMessage && (
+            <Card className="p-3">
+              <pre className="text-sm font-mono whitespace-pre-wrap break-words">
+                {latestParsedMessage}
+              </pre>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   );
 };

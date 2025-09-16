@@ -50,6 +50,7 @@ type BluetoothDeviceContextType = {
   setShowDeleteModal: React.Dispatch<React.SetStateAction<boolean>>;
   deleteDevice: () => Promise<void>;
   refreshTrigger: number;
+  isCreating: boolean;
   
 };
 
@@ -83,7 +84,7 @@ export const BluetoothDeviceProvider: React.FC<{
   const [isLayoutLoading, setIsLayoutLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0); // for registering first time
-
+const [isCreating, setIsCreating] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [currentDeviceBLE, setCurrentDeviceBLE] =
     useState<BluetoothDevice | null>(null);
@@ -473,6 +474,7 @@ export const BluetoothDeviceProvider: React.FC<{
   };
 
   const saveDevice = async (deviceName: string) => {
+      setIsCreating(true);
     try {
       if (!token) throw new Error("No authentication token found");
 
@@ -551,6 +553,8 @@ export const BluetoothDeviceProvider: React.FC<{
         description: err.message || "",
         color: "danger",
       });
+    } finally {
+      setIsCreating(false);
     }
   };
   // Restore persisted page on mount
@@ -604,6 +608,7 @@ export const BluetoothDeviceProvider: React.FC<{
         refreshDevices: async () => {
           await fetchDevices();
         },
+            isCreating,
         showDeleteModal,
         setShowDeleteModal,
         deleteDevice,

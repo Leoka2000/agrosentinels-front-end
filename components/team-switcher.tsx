@@ -15,7 +15,13 @@ import {
   DropdownItem,
   DropdownSection,
 } from "@heroui/dropdown";
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from "@heroui/modal";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { useBluetoothDevice } from "@/context/BluetoothDeviceContext";
@@ -26,6 +32,7 @@ export function DeviceSwitcher() {
     saveDevice,
     setShowCreateModal,
     showCreateModal,
+    isCreating,
     devices,
     activeDeviceId,
     deleteDevice, // ✅ get deleteDevice from context
@@ -33,7 +40,7 @@ export function DeviceSwitcher() {
 
   // Find the currently active device from the context
   const activeDevice = React.useMemo(() => {
-    const device = devices.find(d => d.id.toString() === activeDeviceId);
+    const device = devices.find((d) => d.id.toString() === activeDeviceId);
     return device
       ? {
           name: device.name,
@@ -65,7 +72,8 @@ export function DeviceSwitcher() {
             placement={isMobile ? "bottom" : "right-start"}
             classNames={{
               base: "before:bg-default-200",
-              content: "py-1 px-1 border border-default-200 bg-linear-to-br from-white to-default-200 dark:from-default-50 dark:to-black",
+              content:
+                "py-1 px-1 border border-default-200 bg-linear-to-br from-white to-default-200 dark:from-default-50 dark:to-black",
             }}
           >
             <DropdownTrigger>
@@ -77,7 +85,9 @@ export function DeviceSwitcher() {
                   <activeDevice.logo />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{activeDevice.name}</span>
+                  <span className="truncate font-medium">
+                    {activeDevice.name}
+                  </span>
                 </div>
                 <ChevronsUpDown className="ml-auto" />
               </SidebarMenuButton>
@@ -85,7 +95,8 @@ export function DeviceSwitcher() {
 
             <DropdownMenu aria-label="Device Switcher">
               {/* Create Device */}
-              <DropdownItem key={""}
+              <DropdownItem
+                key={""}
                 startContent={
                   <div className="flex size-6 items-center justify-center rounded-md">
                     <SquarePlus className="size-4" />
@@ -99,8 +110,11 @@ export function DeviceSwitcher() {
 
               {/* Danger Zone */}
               <DropdownSection>
-                <DropdownItem key={""}
-                  startContent={<Trash2 className="size-4 ml-1 text-[#f31260]" />}
+                <DropdownItem
+                  key={""}
+                  startContent={
+                    <Trash2 className="size-4 ml-1 text-[#f31260]" />
+                  }
                   className="font-medium text-[#f31260] hover:text-[#f31260] dark:hover:text-[#f31260]"
                   onPress={deleteDevice} // ✅ call deleteDevice from context
                 >
@@ -125,12 +139,16 @@ export function DeviceSwitcher() {
             />
           </ModalBody>
           <ModalFooter>
-            <Button variant="bordered" onPress={() => setShowCreateModal(false)}>
+            <Button
+              variant="bordered"
+              onPress={() => setShowCreateModal(false)}
+            >
               Cancel
             </Button>
             <Button
               color="success"
-              isDisabled={!deviceName.trim()}
+              isDisabled={!deviceName.trim() || isCreating}
+              isLoading={isCreating}
               onPress={() => saveDevice(deviceName.trim())}
             >
               Create

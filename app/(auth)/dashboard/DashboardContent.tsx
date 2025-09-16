@@ -51,7 +51,8 @@ const DashboardContent: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [newDeviceName, setNewDeviceName] = useState<string>(""); // <-- Added state for newDeviceName
+  const [newDeviceName, setNewDeviceName] = useState<string>("");
+  const [deviceName, setDeviceName] = React.useState(""); // <-- Added state for newDeviceName
   const { token } = useAuth();
   const {
     devices,
@@ -59,6 +60,7 @@ const DashboardContent: React.FC = () => {
     setPage,
     saveDevice,
     isRegistered,
+    isCreating,
     isLayoutLoading,
     scanForDevices,
     showRegisterModal,
@@ -67,16 +69,14 @@ const DashboardContent: React.FC = () => {
     form,
     isScanning,
     isRegistering,
-      showCreateModal,       
-    setShowCreateModal, 
+    showCreateModal,
+    setShowCreateModal,
     hasCreatedFirstDevice,
   } = useBluetoothDevice();
 
   const currentDevice = devices[page - 1];
- 
 
-
-if (!hasCreatedFirstDevice) {
+  if (!hasCreatedFirstDevice) {
     return (
       <div className="mx-auto w-full">
         <Card className="px-8 py-6 w-full relative overflow-hidden">
@@ -99,9 +99,7 @@ if (!hasCreatedFirstDevice) {
             </div>
           </div>
           <CardContent style={{ padding: 0 }}>
-           <PlaceholderCards />
-         
-                      
+            <PlaceholderCards />
           </CardContent>
         </Card>
 
@@ -126,12 +124,9 @@ if (!hasCreatedFirstDevice) {
               </Button>
               <Button
                 color="success"
-                isDisabled={!newDeviceName.trim()}
-                onPress={() => {
-                  saveDevice(newDeviceName.trim());
-                  setNewDeviceName("");
-                  setShowCreateModal(false);
-                }}
+                isDisabled={!deviceName.trim() || isCreating}
+                isLoading={isCreating}
+                onPress={() => saveDevice(deviceName.trim())}
               >
                 Create
               </Button>
@@ -218,6 +213,18 @@ if (!hasCreatedFirstDevice) {
         </p>
       </div>
 
+      <CardContent style={{ padding: "0" }} className="my-5">
+        <div className="flex md:flex-row flex-col items-baseline justify-between w-full">
+          <div className="flex justify-between items-center space-x-2 mb-2">
+            <Kbd className="p-2">
+              <Bluetooth size={22} />
+            </Kbd>
+            <span className="font-medium text-xl">{currentDevice?.name}</span>
+          </div>
+          <BluetoothConnectButton />
+        </div>
+      </CardContent>
+
       {/* Pagination */}
       <div className="flex justify-baseline mb-8  ">
         {" "}
@@ -269,19 +276,6 @@ if (!hasCreatedFirstDevice) {
                       <div className="h-[10rem] sm:w-auto w-full">
                         <AlertCard />
                       </div>
-                    </div>
-                  </CardContent>
-                  <CardContent style={{ padding: "0" }} className=" mt-5">
-                    <div className="flex md:flex-row flex-col items-baseline justify-between w-full">
-                      <div className="flex justify-between items-center space-x-2 mb-2">
-                        <Kbd className="p-2">
-                          <Bluetooth size={22} />
-                        </Kbd>
-                        <span className="font-medium text-xl">
-                          {currentDevice?.name}
-                        </span>
-                      </div>
-                      <BluetoothConnectButton />
                     </div>
                   </CardContent>
 
