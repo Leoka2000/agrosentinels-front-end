@@ -2,6 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useGlobalLoading } from "./GlobalLoadingContext";
 import { AppUser } from "@/types/AppUser"; // your user interface
 import {
   getToken,        // read token from localStorage or cookie
@@ -14,7 +15,7 @@ import {
 interface AuthContextType {
   user: AppUser | null; // currently logged-in user, null if not logged in
   token: string | null; // current auth token
-  loading: boolean; // whether auth info is still being loaded
+// whether auth info is still being loaded
   login: (token: string) => Promise<void>; // function to log in
   logout: () => void; // function to log out
   refreshUser: () => Promise<void>; // refresh current user data
@@ -27,7 +28,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null); // store current user
   const [token, setAuthToken] = useState<string | null>(null); // store current token
-  const [loading, setLoading] = useState(true); // loading state while fetching user
+  const { setLoadingFor } = useGlobalLoading(); // loading state while fetching user
 
   // ---------------- check for token and fetch user on mount ----------------
   useEffect(() => {
@@ -37,14 +38,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       fetchCurrentUser()          // fetch user from backend
         .then((u) => setUser(u))  // save user in state
         .catch(() => {
-          // if fetching fails, clear token & reset state
+          // if fetching fails, clear token anse reset state
           clearToken();
           setUser(null);
           setAuthToken(null);
         })
-        .finally(() => setLoading(false)); // done loading regardless
+        .finally(() =>  setLoadingFor("auth",false)); // done loading regardless
     } else {
-      setLoading(false); // no token, no need to fetch
+      setLoadingFor("auth",false);  // no token, no need to fetch
     }
   }, []);
 
@@ -81,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // ---------------- provide context values ----------------
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, login, logout, refreshUser }}
+      value={{ user, token,  login, logout, refreshUser }}
     >
       {children}
     </AuthContext.Provider>

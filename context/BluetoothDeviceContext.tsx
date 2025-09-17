@@ -10,7 +10,8 @@ declare global {
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { addToast } from "@heroui/toast";
 import { useAuth } from "./AuthContext";
-import { useBluetoothSensor } from "./useBluetoothSensor";
+
+import { useGlobalLoading } from "./GlobalLoadingContext";
 
 // simple type for devices
 type Device = {
@@ -29,10 +30,10 @@ type ActiveDeviceResponse = {
 type BluetoothDeviceContextType = {
   devices: Device[];
   activeDeviceId: string;
-  isRegistered: boolean | null;
+
   page: number;
   setPage: React.Dispatch<React.SetStateAction<number>>;
-  isLayoutLoading: boolean;
+
   handleDeviceSelect: (deviceId: string) => Promise<void>;
   scanForDevices: () => Promise<void>;
   currentDeviceBLE: BluetoothDevice | null;
@@ -81,13 +82,15 @@ export const BluetoothDeviceProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
   // ---------------- state ----------------
-  const [isRegistered, setIsRegistered] = useState<boolean | null>(null); // tracks if active device is registered
+
+  const [hasCreatedFirstDevice, setHasCreatedFirstDevice] =
+    useState<boolean>(true); // start as null
   const [devices, setDevices] = useState<Device[]>([]); // list of all devices
   const [activeDeviceId, setActiveDeviceId] = useState<string>(""); // id of currently selected device
   const [isSelecting, setIsSelecting] = useState(false); // prevent multiple selects at same time
   const [deviceSelectionTrigger, setDeviceSelectionTrigger] = useState(0); // triggers refresh of selection
   const [page, setPage] = useState(1); // current page in device list
-  const [isLayoutLoading, setIsLayoutLoading] = useState(true); // layout loading state
+
   const [showDeleteModal, setShowDeleteModal] = useState(false); // delete modal visibility
   const [refreshTrigger, setRefreshTrigger] = useState(0); // triggers refresh after first device creation
   const [isCreating, setIsCreating] = useState(false); // creating device state
@@ -104,11 +107,12 @@ export const BluetoothDeviceProvider: React.FC<{
     alarmCharUuid: "",
   }); // ble service/characteristic uuids for registration
   const [isScanning, setIsScanning] = useState(false); // scanning state
+  const { setDeviceRegistered } = useGlobalLoading();
   const [localConnected, setLocalConnected] = useState(false); // ble connection state
   const [isRegistering, setIsRegistering] = useState(false); // registration process state
-  const [hasCreatedFirstDevice, setHasCreatedFirstDevice] =
-    useState<boolean>(true); // tracks if user created first device
+
   const [showCreateModal, setShowCreateModal] = useState(false); // show create modal
+  const { setLoadingFor, loadingSources } = useGlobalLoading();
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL; // base url for api
   const { token } = useAuth(); // auth token from context
@@ -142,13 +146,15 @@ export const BluetoothDeviceProvider: React.FC<{
   const fetchActiveDevice = async () => {
     if (!token) {
       // reset state if no token
-      setIsLayoutLoading(false);
-      setIsRegistered(false);
+      setLoadingFor("device", false);
+
+     
+      setDeviceRegistered(false); // or false
       setActiveDeviceId("");
       return;
     }
 
-    setIsLayoutLoading(true);
+    setLoadingFor("device", true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/device/active`, {
         method: "GET",
@@ -160,27 +166,31 @@ export const BluetoothDeviceProvider: React.FC<{
 
       if (!res.ok) {
         console.error(`Failed to fetch active device. Status: ${res.status}`);
-        setIsRegistered(false);
+    
+        setDeviceRegistered(false); // or false
         setActiveDeviceId("");
         return;
       }
 
       const text = await res.text();
       if (!text) {
-        setIsRegistered(false);
+
+        setDeviceRegistered(false); // or false
         setActiveDeviceId("");
         return;
       }
 
       const data: ActiveDeviceResponse = JSON.parse(text);
-      setIsRegistered(!!data.registeredDevice); // cast to boolean
+      // or false
+      setDeviceRegistered(!!data.registeredDevice); // cast to boolean
       setActiveDeviceId(data.deviceId?.toString() || ""); // store as string
     } catch (error) {
       console.error("Error fetching active device:", error);
-      setIsRegistered(false);
+ 
+      setDeviceRegistered(false);
       setActiveDeviceId("");
     } finally {
-      setIsLayoutLoading(false);
+      setLoadingFor("device", false);
     }
   };
 
@@ -215,9 +225,9 @@ export const BluetoothDeviceProvider: React.FC<{
       fetchActiveDevice(); // fetch active device
       fetchDevices(); // fetch all devices
     } else {
-      setIsLayoutLoading(false);
       setDevices([]);
       setActiveDeviceId("");
+      setLoadingFor("device", false);
     }
   }, [token]);
 
@@ -243,7 +253,11 @@ export const BluetoothDeviceProvider: React.FC<{
     const currentDevice = devices[clampedPage - 1];
     if (!currentDevice) return;
 
-    if (!isSelecting && currentDevice.id.toString() !== activeDeviceId && token) {
+    if (
+      !isSelecting &&
+      currentDevice.id.toString() !== activeDeviceId &&
+      token
+    ) {
       // trigger selection but don't await to avoid blocking
       handleDeviceSelect(currentDevice.id.toString()).catch((e) =>
         console.error("Auto select error:", e)
@@ -255,7 +269,7 @@ export const BluetoothDeviceProvider: React.FC<{
   const handleDeviceSelect = async (deviceId: string) => {
     try {
       setIsSelecting(true);
-      setIsLayoutLoading(true);
+      setLoadingFor("device", true);
       setActiveDeviceId(deviceId);
 
       if (!token) throw new Error("No authentication token found");
@@ -283,7 +297,8 @@ export const BluetoothDeviceProvider: React.FC<{
       });
     } finally {
       setIsSelecting(false);
-      setIsLayoutLoading(false);
+
+      setLoadingFor("device", false);
     }
   };
 
@@ -395,14 +410,20 @@ export const BluetoothDeviceProvider: React.FC<{
       const services = await server.getPrimaryServices();
       const mappedForm = { ...form };
       for (const service of services) {
-        if (service.uuid.includes("1111")) mappedForm.serviceUuid = service.uuid;
+        if (service.uuid.includes("1111"))
+          mappedForm.serviceUuid = service.uuid;
         const chars = await service.getCharacteristics();
         for (const char of chars) {
-          if (char.uuid.includes("2222")) mappedForm.measurementCharUuid = char.uuid;
-          if (char.uuid.includes("4444")) mappedForm.setTimeCharUuid = char.uuid;
-          if (char.uuid.includes("5555")) mappedForm.sleepControlCharUuid = char.uuid;
-          if (char.uuid.includes("6666")) mappedForm.ledControlCharUuid = char.uuid;
-          if (char.uuid.includes("7777")) mappedForm.logReadCharUuid = char.uuid;
+          if (char.uuid.includes("2222"))
+            mappedForm.measurementCharUuid = char.uuid;
+          if (char.uuid.includes("4444"))
+            mappedForm.setTimeCharUuid = char.uuid;
+          if (char.uuid.includes("5555"))
+            mappedForm.sleepControlCharUuid = char.uuid;
+          if (char.uuid.includes("6666"))
+            mappedForm.ledControlCharUuid = char.uuid;
+          if (char.uuid.includes("7777"))
+            mappedForm.logReadCharUuid = char.uuid;
           if (char.uuid.includes("3333")) mappedForm.alarmCharUuid = char.uuid;
         }
       }
@@ -432,7 +453,9 @@ export const BluetoothDeviceProvider: React.FC<{
 
       if (!res.ok) {
         const errorText = await res.text();
-        throw new Error(`Failed to register device: ${res.status} ${errorText}`);
+        throw new Error(
+          `Failed to register device: ${res.status} ${errorText}`
+        );
       }
 
       addToast({
@@ -571,10 +594,10 @@ export const BluetoothDeviceProvider: React.FC<{
       value={{
         devices,
         activeDeviceId,
-        isRegistered,
+
         page,
         setPage,
-        isLayoutLoading,
+
         handleDeviceSelect,
         scanForDevices,
         currentDeviceBLE,
