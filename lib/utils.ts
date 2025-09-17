@@ -100,10 +100,10 @@ export function parseAccelerometerHex(hexString: string) {
   const rawY = hexToSignedInt(yHex);
   const rawZ = hexToSignedInt(zHex);
 
-  // Piezo sensor scaling: ±2G full scale
-  // Convert raw 16-bit signed integer -> m/s²
+  // piezo sensor scaling: ±2G full scale
+  // convert raw 16-bit signed integer -> m/s2
   const fullScaleG = 2; // ±2G
-  const gToMs2 = 9.80665; // 1G = 9.80665 m/s²
+  const gToMs2 = 9.80665; // 1G = 9.80665 m/s2
   const scaleFactor = (fullScaleG * gToMs2) / 32768;
 
   const x = rawX * scaleFactor;

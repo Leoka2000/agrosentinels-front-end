@@ -1,6 +1,6 @@
 "use client";
 
-// Extend the Navigator interface to include 'bluetooth'
+// extend navigator interface so typescript knows about bluetooth
 declare global {
   interface Navigator {
     bluetooth: any;
@@ -12,18 +12,20 @@ import { addToast } from "@heroui/toast";
 import { useAuth } from "./AuthContext";
 import { useBluetoothSensor } from "./useBluetoothSensor";
 
+// simple type for devices
 type Device = {
   id: number;
   name: string;
 };
 
+// shape of active device response from backend
 type ActiveDeviceResponse = {
   deviceId: number;
   deviceName: string;
-
   registeredDevice?: boolean;
 };
 
+// context type that exposes all device-related state and actions
 type BluetoothDeviceContextType = {
   devices: Device[];
   activeDeviceId: string;
@@ -51,18 +53,20 @@ type BluetoothDeviceContextType = {
   deleteDevice: () => Promise<void>;
   refreshTrigger: number;
   isCreating: boolean;
-  
 };
 
+// type for bluetooth device object from web bluetooth api
 type BluetoothDevice = {
   id: string;
-  gatt?: any; // Provided by the DOM lib, fallback to 'any' if type is missing
+  gatt?: any; // fallback to any because dom types may not include gatt
 };
 
+// create context for devices
 const BluetoothDeviceContext = createContext<
   BluetoothDeviceContextType | undefined
 >(undefined);
 
+// hook to use bluetooth device context
 export const useBluetoothDevice = () => {
   const context = useContext(BluetoothDeviceContext);
   if (!context)
@@ -72,22 +76,24 @@ export const useBluetoothDevice = () => {
   return context;
 };
 
+// provider component wrapping app parts that need device info
 export const BluetoothDeviceProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
-  const [isRegistered, setIsRegistered] = useState<boolean | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [activeDeviceId, setActiveDeviceId] = useState<string>("");
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [deviceSelectionTrigger, setDeviceSelectionTrigger] = useState(0);
-  const [page, setPage] = useState(1);
-  const [isLayoutLoading, setIsLayoutLoading] = useState(true);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0); // for registering first time
-const [isCreating, setIsCreating] = useState(false);
-  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  // ---------------- state ----------------
+  const [isRegistered, setIsRegistered] = useState<boolean | null>(null); // tracks if active device is registered
+  const [devices, setDevices] = useState<Device[]>([]); // list of all devices
+  const [activeDeviceId, setActiveDeviceId] = useState<string>(""); // id of currently selected device
+  const [isSelecting, setIsSelecting] = useState(false); // prevent multiple selects at same time
+  const [deviceSelectionTrigger, setDeviceSelectionTrigger] = useState(0); // triggers refresh of selection
+  const [page, setPage] = useState(1); // current page in device list
+  const [isLayoutLoading, setIsLayoutLoading] = useState(true); // layout loading state
+  const [showDeleteModal, setShowDeleteModal] = useState(false); // delete modal visibility
+  const [refreshTrigger, setRefreshTrigger] = useState(0); // triggers refresh after first device creation
+  const [isCreating, setIsCreating] = useState(false); // creating device state
+  const [showRegisterModal, setShowRegisterModal] = useState(false); // show register modal
   const [currentDeviceBLE, setCurrentDeviceBLE] =
-    useState<BluetoothDevice | null>(null);
+    useState<BluetoothDevice | null>(null); // currently connected ble device
   const [form, setForm] = useState({
     serviceUuid: "",
     measurementCharUuid: "",
@@ -96,22 +102,20 @@ const [isCreating, setIsCreating] = useState(false);
     ledControlCharUuid: "",
     sleepControlCharUuid: "",
     alarmCharUuid: "",
-  });
-  const [isScanning, setIsScanning] = useState(false);
-  const [localConnected, setLocalConnected] = useState(false);
-  const [isRegistering, setIsRegistering] = useState(false);
+  }); // ble service/characteristic uuids for registration
+  const [isScanning, setIsScanning] = useState(false); // scanning state
+  const [localConnected, setLocalConnected] = useState(false); // ble connection state
+  const [isRegistering, setIsRegistering] = useState(false); // registration process state
   const [hasCreatedFirstDevice, setHasCreatedFirstDevice] =
-    useState<boolean>(true);
+    useState<boolean>(true); // tracks if user created first device
+  const [showCreateModal, setShowCreateModal] = useState(false); // show create modal
 
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL; // base url for api
+  const { token } = useAuth(); // auth token from context
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-  const { token } = useAuth();
-
-  // Fetch the user's device creation status
+  // ---------------- fetch user device status ----------------
   const fetchDeviceStatus = async () => {
-    if (!token) return;
+    if (!token) return; // skip if not authenticated
 
     try {
       const res = await fetch(`${API_BASE_URL}/users/me/device-status`, {
@@ -123,23 +127,24 @@ const [isCreating, setIsCreating] = useState(false);
       if (!res.ok) throw new Error("Failed to fetch device status");
 
       const data: { hasCreatedFirstDevice: boolean } = await res.json();
-      setHasCreatedFirstDevice(data.hasCreatedFirstDevice);
+      setHasCreatedFirstDevice(data.hasCreatedFirstDevice); // update state
     } catch (err) {
       console.error(err);
-      setHasCreatedFirstDevice(true); // default to true to hide create modal
+      setHasCreatedFirstDevice(true); // fallback: assume device exists to hide create modal
     }
   };
 
   useEffect(() => {
-    fetchDeviceStatus();
+    fetchDeviceStatus(); // fetch status on mount
   }, [token]);
 
+  // ---------------- fetch currently active device ----------------
   const fetchActiveDevice = async () => {
     if (!token) {
+      // reset state if no token
       setIsLayoutLoading(false);
       setIsRegistered(false);
       setActiveDeviceId("");
-
       return;
     }
 
@@ -157,7 +162,6 @@ const [isCreating, setIsCreating] = useState(false);
         console.error(`Failed to fetch active device. Status: ${res.status}`);
         setIsRegistered(false);
         setActiveDeviceId("");
-
         return;
       }
 
@@ -165,13 +169,12 @@ const [isCreating, setIsCreating] = useState(false);
       if (!text) {
         setIsRegistered(false);
         setActiveDeviceId("");
-
         return;
       }
 
       const data: ActiveDeviceResponse = JSON.parse(text);
-      setIsRegistered(!!data.registeredDevice);
-      setActiveDeviceId(data.deviceId?.toString() || "");
+      setIsRegistered(!!data.registeredDevice); // cast to boolean
+      setActiveDeviceId(data.deviceId?.toString() || ""); // store as string
     } catch (error) {
       console.error("Error fetching active device:", error);
       setIsRegistered(false);
@@ -181,7 +184,7 @@ const [isCreating, setIsCreating] = useState(false);
     }
   };
 
-  // returns the fetched devices array so callers can use fresh data
+  // ---------------- fetch all user devices ----------------
   const fetchDevices = async (): Promise<Device[]> => {
     if (!token) {
       setDevices([]);
@@ -197,7 +200,7 @@ const [isCreating, setIsCreating] = useState(false);
       });
       if (!res.ok) throw new Error("Failed to fetch devices");
       const data: Device[] = await res.json();
-      setDevices(data || []);
+      setDevices(data || []); // update state
       return data || [];
     } catch (err) {
       console.error(err);
@@ -206,35 +209,31 @@ const [isCreating, setIsCreating] = useState(false);
     }
   };
 
+  // ---------------- initial load ----------------
   useEffect(() => {
     if (token) {
-      // initial load
-      fetchActiveDevice();
-      fetchDevices();
+      fetchActiveDevice(); // fetch active device
+      fetchDevices(); // fetch all devices
     } else {
-      // ensure not loading if no token
       setIsLayoutLoading(false);
       setDevices([]);
       setActiveDeviceId("");
     }
   }, [token]);
 
+  // ---------------- auto-refresh when device selection changes ----------------
   useEffect(() => {
-    if (token) {
-      fetchActiveDevice();
-    }
+    if (token) fetchActiveDevice();
   }, [deviceSelectionTrigger, token]);
 
   useEffect(() => {
-    if (token) {
-      fetchDevices();
-    }
+    if (token) fetchDevices();
   }, [deviceSelectionTrigger, token]);
 
-  // Auto-select a device when page/devices change, but only if there *are* devices
+  // ---------------- auto-select device based on page ----------------
   useEffect(() => {
     if (!devices || devices.length === 0) return;
-    // clamp page to valid range
+
     const clampedPage = Math.max(1, Math.min(page, devices.length));
     if (clampedPage !== page) {
       setPage(clampedPage);
@@ -244,19 +243,15 @@ const [isCreating, setIsCreating] = useState(false);
     const currentDevice = devices[clampedPage - 1];
     if (!currentDevice) return;
 
-    // select only if different and not currently selecting
-    if (
-      !isSelecting &&
-      currentDevice.id.toString() !== activeDeviceId &&
-      token
-    ) {
-      // don't await here, let it run — still guarded internally
+    if (!isSelecting && currentDevice.id.toString() !== activeDeviceId && token) {
+      // trigger selection but don't await to avoid blocking
       handleDeviceSelect(currentDevice.id.toString()).catch((e) =>
         console.error("Auto select error:", e)
       );
     }
   }, [page, devices, isSelecting, activeDeviceId, token]);
 
+  // ---------------- handle selecting a device ----------------
   const handleDeviceSelect = async (deviceId: string) => {
     try {
       setIsSelecting(true);
@@ -277,8 +272,8 @@ const [isCreating, setIsCreating] = useState(false);
       );
       if (!res.ok) throw new Error("Failed to set active device");
 
-      setDeviceSelectionTrigger((prev) => prev + 1);
-      await fetchActiveDevice();
+      setDeviceSelectionTrigger((prev) => prev + 1); // trigger refresh
+      await fetchActiveDevice(); // refresh active device state
     } catch (err: any) {
       console.error(err);
       addToast({
@@ -292,12 +287,14 @@ const [isCreating, setIsCreating] = useState(false);
     }
   };
 
+  // ---------------- scan for nearby ble devices ----------------
   const scanForDevices = async () => {
     try {
       setIsScanning(true);
       const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: [
+          // example service uuids
           "11111111-1111-1111-1111-111111111111",
           "22222222-2222-2222-2222-222222222222",
           "33333333-3333-3333-3333-333333333333",
@@ -309,9 +306,9 @@ const [isCreating, setIsCreating] = useState(false);
       });
       setCurrentDeviceBLE(device);
       if (device.gatt) {
-        await device.gatt.connect();
+        await device.gatt.connect(); // establish connection
         setLocalConnected(true);
-        await discoverServices(device);
+        await discoverServices(device); // discover services and characteristics
       }
     } catch (err: any) {
       console.error(err);
@@ -324,8 +321,8 @@ const [isCreating, setIsCreating] = useState(false);
     }
   };
 
+  // ---------------- delete device ----------------
   const deleteDevice = async () => {
-    // Prevent deleting if only one device exists
     if (devices.length <= 1) {
       addToast({
         title: "Cannot delete device",
@@ -364,7 +361,7 @@ const [isCreating, setIsCreating] = useState(false);
 
       addToast({ title: "Device deleted successfully", color: "success" });
 
-      // Refresh device list
+      // refresh list after deletion
       const updatedDevicesRes = await fetch(`${API_BASE_URL}/api/device/list`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -376,7 +373,6 @@ const [isCreating, setIsCreating] = useState(false);
       const updatedDevices: Device[] = await updatedDevicesRes.json();
       setDevices(updatedDevices);
 
-      // Set a new active device if available
       if (updatedDevices.length > 0) {
         setActiveDeviceId(updatedDevices[0].id.toString());
         await handleDeviceSelect(updatedDevices[0].id.toString());
@@ -390,6 +386,8 @@ const [isCreating, setIsCreating] = useState(false);
       setShowDeleteModal(false);
     }
   };
+
+  // ---------------- discover services and characteristics ----------------
   const discoverServices = async (device: BluetoothDevice) => {
     try {
       if (!device.gatt) throw new Error("GATT not available");
@@ -397,25 +395,19 @@ const [isCreating, setIsCreating] = useState(false);
       const services = await server.getPrimaryServices();
       const mappedForm = { ...form };
       for (const service of services) {
-        if (service.uuid.includes("1111"))
-          mappedForm.serviceUuid = service.uuid;
+        if (service.uuid.includes("1111")) mappedForm.serviceUuid = service.uuid;
         const chars = await service.getCharacteristics();
         for (const char of chars) {
-          if (char.uuid.includes("2222"))
-            mappedForm.measurementCharUuid = char.uuid;
-          if (char.uuid.includes("4444"))
-            mappedForm.setTimeCharUuid = char.uuid;
-          if (char.uuid.includes("5555"))
-            mappedForm.sleepControlCharUuid = char.uuid;
-          if (char.uuid.includes("6666"))
-            mappedForm.ledControlCharUuid = char.uuid;
-          if (char.uuid.includes("7777"))
-            mappedForm.logReadCharUuid = char.uuid;
+          if (char.uuid.includes("2222")) mappedForm.measurementCharUuid = char.uuid;
+          if (char.uuid.includes("4444")) mappedForm.setTimeCharUuid = char.uuid;
+          if (char.uuid.includes("5555")) mappedForm.sleepControlCharUuid = char.uuid;
+          if (char.uuid.includes("6666")) mappedForm.ledControlCharUuid = char.uuid;
+          if (char.uuid.includes("7777")) mappedForm.logReadCharUuid = char.uuid;
           if (char.uuid.includes("3333")) mappedForm.alarmCharUuid = char.uuid;
         }
       }
       setForm(mappedForm);
-      setShowRegisterModal(true);
+      setShowRegisterModal(true); // show modal after discovering services
       addToast({ title: "Service discovery complete", color: "success" });
     } catch (err) {
       console.error(err);
@@ -423,6 +415,7 @@ const [isCreating, setIsCreating] = useState(false);
     }
   };
 
+  // ---------------- register device with backend ----------------
   const registerDevice = async () => {
     try {
       setIsRegistering(true);
@@ -438,10 +431,8 @@ const [isCreating, setIsCreating] = useState(false);
       });
 
       if (!res.ok) {
-        const errorText = await res.text(); // get backend error message
-        throw new Error(
-          `Failed to register device: ${res.status} ${errorText}`
-        );
+        const errorText = await res.text();
+        throw new Error(`Failed to register device: ${res.status} ${errorText}`);
       }
 
       addToast({
@@ -451,14 +442,14 @@ const [isCreating, setIsCreating] = useState(false);
       });
 
       if (currentDeviceBLE && currentDeviceBLE.gatt?.connected) {
-        await currentDeviceBLE.gatt.disconnect();
+        await currentDeviceBLE.gatt.disconnect(); // disconnect ble
         setLocalConnected(false);
         setCurrentDeviceBLE(null);
         addToast({ title: "Device Disconnected", color: "success" });
       }
 
       setShowRegisterModal(false);
-      setRefreshTrigger((prev) => (prev === 0 ? 1 : 0));
+      setRefreshTrigger((prev) => (prev === 0 ? 1 : 0)); // trigger refresh
       await fetchActiveDevice();
       await fetchDevices();
     } catch (err: any) {
@@ -473,12 +464,13 @@ const [isCreating, setIsCreating] = useState(false);
     }
   };
 
+  // ---------------- save a new device ----------------
   const saveDevice = async (deviceName: string) => {
-      setIsCreating(true);
+    setIsCreating(true);
     try {
       if (!token) throw new Error("No authentication token found");
 
-      // Step 1: Fetch device status
+      // fetch device status
       const statusRes = await fetch(`${API_BASE_URL}/users/me/device-status`, {
         method: "GET",
         headers: {
@@ -486,13 +478,11 @@ const [isCreating, setIsCreating] = useState(false);
           "Content-Type": "application/json",
         },
       });
-
       if (!statusRes.ok) throw new Error("Failed to fetch device status");
 
       const statusData: { hasCreatedFirstDevice: boolean } =
         await statusRes.json();
 
-      // Step 2: If user hasn't created the first device, PATCH it to true
       if (!statusData.hasCreatedFirstDevice) {
         const patchRes = await fetch(
           `${API_BASE_URL}/users/me/device-status?status=true`,
@@ -508,13 +498,11 @@ const [isCreating, setIsCreating] = useState(false);
         if (!patchRes.ok) throw new Error("Failed to update device status");
 
         addToast({ title: "Device status updated to true", color: "success" });
-
-        // ✅ Update local state so UI re-renders
         setRefreshTrigger((prev) => (prev === 0 ? 1 : 0));
         setHasCreatedFirstDevice(true);
       }
 
-      // Step 3: Create the new device
+      // create device
       const payload = {
         name: deviceName,
         serviceUuid: null,
@@ -540,12 +528,9 @@ const [isCreating, setIsCreating] = useState(false);
       addToast({ title: "Device created successfully", color: "success" });
       setShowCreateModal(false);
 
-      // Step 4: Refresh devices and active device
       const updatedDevices = await fetchDevices();
       await fetchActiveDevice();
-
-      // Step 5: Set page to the newly created device
-      setPage(updatedDevices.length);
+      setPage(updatedDevices.length); // navigate to new device. VERY impprtant to avoid confusion for user
     } catch (err: any) {
       console.error(err);
       addToast({
@@ -557,15 +542,13 @@ const [isCreating, setIsCreating] = useState(false);
       setIsCreating(false);
     }
   };
-  // Restore persisted page on mount
+
+  // ---------------- persist page in local storage ----------------
   useEffect(() => {
     const savedPage = localStorage.getItem("activePage");
-    if (savedPage) {
-      setPage(parseInt(savedPage, 10));
-    }
+    if (savedPage) setPage(parseInt(savedPage, 10));
   }, []);
 
-  // Persist page whenever it changes
   useEffect(() => {
     localStorage.setItem("activePage", page.toString());
   }, [page]);
@@ -578,11 +561,11 @@ const [isCreating, setIsCreating] = useState(false);
           console.error("Page select error:", e)
         );
       }
-
-      // 🔥 Force BluetoothSensorContext to refresh its activeDevice
-      setDeviceSelectionTrigger((prev) => prev + 1);
+      setDeviceSelectionTrigger((prev) => prev + 1); // force refresh for sensor context
     }
   }, [page]);
+
+  // ---------------- provide all state and actions to context ----------------
   return (
     <BluetoothDeviceContext.Provider
       value={{
@@ -608,7 +591,7 @@ const [isCreating, setIsCreating] = useState(false);
         refreshDevices: async () => {
           await fetchDevices();
         },
-            isCreating,
+        isCreating,
         showDeleteModal,
         setShowDeleteModal,
         deleteDevice,

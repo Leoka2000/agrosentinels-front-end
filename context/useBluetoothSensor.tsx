@@ -22,6 +22,9 @@ import {
 } from "../lib/utils";
 import { useBluetoothDevice } from "@/context/BluetoothDeviceContext";
 
+
+//  describes the device that we connect to bluetooth
+// it holds identifiers and characteristics needed to read or write data
 interface ActiveDevice {
   deviceId: number;
   deviceName: string;
@@ -37,6 +40,8 @@ interface ActiveDevice {
   lastReceivedTimestamp?: number;
 }
 
+// this describes the latest metrics (values) that we read from the device
+// it includes things like temperature, voltage, acceleration, etc
 interface DeviceMetrics {
   deviceId: number;
   deviceName: string;
@@ -58,12 +63,13 @@ interface DeviceMetrics {
   latestAmpl4?: number | null;
 }
 
+// minimal description of a bluetooth device as seen by the browser to be used by the chrome web bluetooth api
 interface BluetoothDevice {
   id: string;
   name?: string;
   gatt?: any;
 }
-
+// shape of a bluetooth gatt characteristic object in the browser
 type BluetoothRemoteGATTCharacteristic = {
   uuid: string;
   startNotifications: () => Promise<void>;
@@ -74,6 +80,8 @@ type BluetoothRemoteGATTCharacteristic = {
   readValue: () => Promise<DataView>;
 };
 
+// this defines everything that will be available through the context
+// components can call these functions or read these values
 interface BluetoothSensorContextValue {
   activeDevice: ActiveDevice | null;
   deviceMetrics: DeviceMetrics | null;
@@ -98,9 +106,10 @@ interface BluetoothSensorContextValue {
   latestParsedMessage: string | null;
 }
 
+// context object that will hold our bluetooth state and functions
 const BluetoothSensorContext =
   createContext<BluetoothSensorContextValue | null>(null);
-
+// provider component that wraps around the app and gives access to the context
 interface BluetoothSensorProviderProps {
   children: ReactNode;
   deviceSelectionTrigger?: number;
@@ -110,12 +119,13 @@ export const BluetoothSensorProvider = ({
   children,
   deviceSelectionTrigger,
 }: BluetoothSensorProviderProps) => {
+    // state to track the active device and its connection status
   const [activeDevice, setActiveDevice] = useState<ActiveDevice | null>(null);
   const [localConnected, setLocalConnected] = useState(false);
   const [currentDevice, setCurrentDevice] = useState<BluetoothDevice | null>(
     null
   );
-
+  // latest metrics and parsed message shown in ui
   const [deviceMetrics, setDeviceMetrics] = useState<DeviceMetrics | null>(
     null
   );
@@ -125,15 +135,18 @@ export const BluetoothSensorProvider = ({
   >({});
   const [latestParsedMessage, setLatestParsedMessage] = useState<string | null>(
     null
-  );
+  );  
+  // external hook providing info about page and refresh state
   const { page, refreshTrigger } = useBluetoothDevice();
+
+    // ref to store interval for streaming, so we can clear it later
   const streamingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
   // ---------------- fetch active device logic ----------------
   const fetchActiveDevice = useCallback(async () => {
-    if (!token) return null; // 🚀 don't call API without token
+    if (!token) return null;// dontt fetch without a valid token
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/device/active`, {
@@ -150,7 +163,7 @@ export const BluetoothSensorProvider = ({
         return null;
       }
 
-      // ✅ handle empty response bodies (e.g. 404, 502, etc.)
+ // handle empty responses so the app does not crash
       const text = await response.text();
       if (!text) {
         console.warn("Active device response body was empty");
@@ -172,7 +185,7 @@ export const BluetoothSensorProvider = ({
         return null;
       }
 
-      // Map response to ActiveDevice
+    // map server response into ActiveDevice object
       const activeDeviceObj: ActiveDevice = {
         deviceId: data.deviceId,
         deviceName: data.deviceName,
@@ -189,7 +202,7 @@ export const BluetoothSensorProvider = ({
       };
       setActiveDevice(activeDeviceObj);
 
-      // Map response to DeviceMetrics
+      // map into DeviceMetrics object for latest values
       const metrics: DeviceMetrics = {
         deviceId: data.deviceId,
         deviceName: data.deviceName,
@@ -222,10 +235,13 @@ export const BluetoothSensorProvider = ({
     }
   }, [API_BASE_URL, token, page, refreshTrigger]);
 
+
+
+ 
   useEffect(() => {
     if (token) {
-      console.log(`🔄 Page changed to: ${page}, fetching active device...`);
-      fetchActiveDevice();
+      console.log(`🔄 Page changed to: ${page}, fetching active device...`);   // keep active device up to date
+      fetchActiveDevice();                                                      //  when page or trigger changes
     }
   }, [page, token, fetchActiveDevice, refreshTrigger]);
 
@@ -246,7 +262,7 @@ export const BluetoothSensorProvider = ({
     }
   }, [deviceSelectionTrigger, fetchActiveDevice]);
 
-  // ---------------- bluetooth logic ----------------
+  // ---------------- bluetooth logic connectio.n logic ----------------
   const discoverServicesAndCharacteristics = async (
     device: BluetoothDevice,
     serviceUuid: string
@@ -287,7 +303,7 @@ export const BluetoothSensorProvider = ({
     }
   };
 
-  // ---------------- stop streaming (cleanup) ----------------
+  // ---------------- stop streaming ----------------
   const stopStreaming = () => {
     if (streamingIntervalRef.current) {
       clearInterval(streamingIntervalRef.current);
@@ -297,9 +313,9 @@ export const BluetoothSensorProvider = ({
     }
   };
 
-  // ---------------- disconnect cleanup ----------------
+  // ---------------- disconnect  ----------------
   const disconnectBluetooth = () => {
-    stopStreaming(); // cleanup interval on disconnect
+    stopStreaming(); // make sure we stop any ongoing streaming
     if (currentDevice?.gatt?.connected) currentDevice.gatt.disconnect();
     setLocalConnected(false);
     setCurrentDevice(null);
@@ -307,7 +323,7 @@ export const BluetoothSensorProvider = ({
     addToast({ title: "Disconnected", color: "warning" });
   };
 
-  // ---------------- Write Big-Endian Timestamp ----------------
+  // ---------------- write current time to device ----------------
   const writeSetTime = async (setTimeCharUuid: string): Promise<void> => {
     const char = characteristics[setTimeCharUuid];
     if (!char) {
@@ -318,9 +334,9 @@ export const BluetoothSensorProvider = ({
       return;
     }
 
-    const currentTimestamp = Math.floor(Date.now() / 1000); // current time in seconds
-    const buffer = new ArrayBuffer(4);
-    const view = new DataView(buffer);
+    const currentTimestamp = Math.floor(Date.now() / 1000); // current unix time OF NOW. 
+    const buffer = new ArrayBuffer(4);                      // this is the timestamp we send to ....44444
+    const view = new DataView(buffer);                    // to the device to CONFIGURE ITS CLOCK
     view.setUint32(0, currentTimestamp, false); // big-endian
 
     try {
@@ -349,7 +365,7 @@ export const BluetoothSensorProvider = ({
       });
       return;
     }
-    await char.writeValue(Uint8Array.of(0x4e)); // Sleep ON
+    await char.writeValue(Uint8Array.of(0x4e)); // command to wake the device up
     addToast({ title: "Sleep ON sent", color: "success" });
   };
 
@@ -362,7 +378,7 @@ export const BluetoothSensorProvider = ({
       });
       return;
     }
-    await char.writeValue(Uint8Array.of(0x46)); // Sleep OFF
+    await char.writeValue(Uint8Array.of(0x46)); // command to put device to sleep
     addToast({ title: "Sleep OFF sent", color: "success" });
   };
 
@@ -390,20 +406,22 @@ export const BluetoothSensorProvider = ({
     }
 
     try {
+          // clear any existing interval that may be running alresdy
       if (streamingIntervalRef.current) {
         clearInterval(streamingIntervalRef.current);
         streamingIntervalRef.current = null;
       }
-
-      const currentTimestamp = Math.floor(Date.now() / 1000);
+                                                              // send current time to device before starting stream. 
+      const currentTimestamp = Math.floor(Date.now() / 1000); // TODO: REMOVE THIS. we dont need to send the timestamp AGAIN
       const buffer = new ArrayBuffer(4);
       new DataView(buffer).setUint32(0, currentTimestamp, false); // big-endian
       await setTimeChar.writeValue(buffer);
       console.log("⏰ Timestamp sent to MCU:", currentTimestamp);
-
+      // wait a lil moment before enabling notifications
       await new Promise((resolve) => setTimeout(resolve, 50));
       await measurementChar.startNotifications();
 
+     // listen to notifications, start being notified of streaming live data
       measurementChar.addEventListener(
         "characteristicvaluechanged",
         async (event: any) => {
@@ -416,13 +434,15 @@ export const BluetoothSensorProvider = ({
 
             const numericDeviceId = activeDevice.deviceId;
 
+
+     // parse values from hex string to human readable numbers
             const unixTimestamp = parseTimestampHex(hexString);
             const batteryVoltage = parseBatteryVoltageHex(hexString);
             const temperature = parseTemperatureHex(hexString);
             const accel = parseAccelerometerHex(hexString);
             const frequencies = parseFrequencyHex(hexString);
             const amplitudes = parseAmplitudeHex(hexString);
-
+    // update state with the new values
             setDeviceMetrics((prev) => ({
               ...prev,
               deviceId: numericDeviceId,
@@ -445,7 +465,7 @@ export const BluetoothSensorProvider = ({
               latestAmpl4: amplitudes.ampl4,
             }));
 
-            // ✅ Use streamPostMetrics util
+            // send data to backend api
             await streamPostMetrics(
               API_BASE_URL,
               token,
@@ -472,7 +492,7 @@ export const BluetoothSensorProvider = ({
     }
   };
 
-  // ---------------- get logs ----------------
+  // ---------------- get logs, read historical data from flash memory ----------------
 
   const getHistoricalLogs = async (
     logReadCharUuid: string,
@@ -489,21 +509,18 @@ export const BluetoothSensorProvider = ({
       return;
     }
     if (!token) {
-      addToast({
-        title: "Authentication required",
-        color: "danger",
-      });
+      addToast({ title: "Authentication required", color: "danger" });
       console.warn("❌ No token available, aborting historical log fetch.");
       return;
     }
 
     const numericDeviceId = activeDevice.deviceId;
 
-    const PACKET_HEX_LEN = 480; // 240 bytes
-    const MEAS_HEX_LEN = 60; // 30 bytes
-    const MAX_PACKETS = 8;
+    const PACKET_HEX_LEN = 480; // full log packet = 240 bytes
+    const MEAS_HEX_LEN = 60; // single measurement = 30 bytes
+    const MAX_PACKETS = 8;  // maximum amount of packets in one data package sent
     const MAX_READS_PER_PACKET = 200;
-    const TIMEOUT_MS = 20000; // give it more time since ACK spam is frequent
+    const TIMEOUT_MS = 20000; // allow 20s instead of 10s
 
     let hexBuffer = "";
     let lastPacketHex: string | null = null;
@@ -517,7 +534,7 @@ export const BluetoothSensorProvider = ({
     }, TIMEOUT_MS);
 
     try {
-      // Send init timestamp
+      // send init timestamp. THIS WILL BE CHANGED LATER. THE USER MUST CHOSE FROM WHEN HE WANTS TO START READING THE LOGS
       const ts = Math.floor(Date.now() / 1000);
       const initBuf = new Uint8Array([
         (ts >> 24) & 0xff,
@@ -528,8 +545,8 @@ export const BluetoothSensorProvider = ({
       await char.writeValue(initBuf);
       console.log("📝 Sent timestamp to log char");
 
-      // Try to read immediate ACK (optional)
-      try {
+      //foR some reason the device keeps sending short ack-like frames so I made
+      try { // this function to ignore them and parse only the actual relevant data
         const ackVal = await char.readValue();
         let ackHex = "";
         for (let i = 0; i < ackVal.byteLength; i++) {
@@ -540,7 +557,7 @@ export const BluetoothSensorProvider = ({
         console.warn("⚠️ No acknowledgment response received:", err);
       }
 
-      // Start fetching packets
+      // main packet loop
       while (packetCount < MAX_PACKETS && !stop) {
         let readsThisPacket = 0;
 
@@ -555,14 +572,16 @@ export const BluetoothSensorProvider = ({
             hexPart += value.getUint8(i).toString(16).padStart(2, "0");
           }
 
-          // Ignore short ACK frames, but don’t stop
+
           if (hexPart.length === 8) {
-            console.log("↪️ Short ACK frame ignored:", hexPart);
+            console.log("↩️ ACK frame ignored:", hexPart);
             readsThisPacket++;
+            // small delay to give MCU time to prepare full packet
+            await new Promise((res) => setTimeout(res, 50));
             continue;
           }
 
-          // Accumulate real data
+          // accumulate real data
           if (hexPart.length > 0) {
             hexBuffer += hexPart;
           }
@@ -570,10 +589,12 @@ export const BluetoothSensorProvider = ({
         }
 
         if (hexBuffer.length < PACKET_HEX_LEN) {
-          console.log("⌛ Waiting for full packet...");
-          continue; // don’t stop, just wait for more reads
+          console.warn("⚠️ Incomplete packet, waiting for more data...");
+          // allow next loop iteration to fetch more instead of breaking. CURRENTLY NOT WORKING
+          continue;
         }
 
+        // process full packets thatb we got
         while (
           hexBuffer.length >= PACKET_HEX_LEN &&
           packetCount < MAX_PACKETS &&
@@ -585,8 +606,9 @@ export const BluetoothSensorProvider = ({
           if (/^0+$/.test(fullPacketHex)) {
             console.log(`🛑 Packet ${packetCount + 1} is all zeros.`);
             if (onComplete) onComplete();
-            stop = true;
-            break;
+            hexBuffer = "";
+            packetCount = MAX_PACKETS; // exit function when we get only zeros. 
+            break;                      // meaning no more logs and no need to continue running tbis fuznction
           }
 
           if (lastPacketHex && lastPacketHex === fullPacketHex) {
@@ -624,8 +646,9 @@ export const BluetoothSensorProvider = ({
             const accel = parseAccelerometerHex(measurementHex);
             const frequencies = parseFrequencyHex(measurementHex);
             const amplitudes = parseAmplitudeHex(measurementHex);
-
-            setDeviceMetrics((prev) => ({
+       
+            setDeviceMetrics((prev) => ({ //update state related to latest values measured. 
+            
               ...prev,
               deviceId: numericDeviceId,
               deviceName: activeDevice.deviceName,
@@ -650,7 +673,7 @@ export const BluetoothSensorProvider = ({
             packetFormattedMessages.push(
               formatParsedMeasurementMessage(measurementHex)
             );
-
+           // send data to backend api
             await logspostMetrics(
               API_BASE_URL,
               token,

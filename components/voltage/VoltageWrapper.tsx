@@ -1,8 +1,7 @@
 import React from "react";
 import { VoltageChart } from "./VoltageChart";
-import { useBluetoothSensor } from "../../context/useBluetoothSensor";
 
-const VoltageProvider = () => {
+const VoltageWrapper = () => {
 
  
 
@@ -15,4 +14,4 @@ const VoltageProvider = () => {
   );
 };
 
-export default VoltageProvider;
+export default VoltageWrapper;
