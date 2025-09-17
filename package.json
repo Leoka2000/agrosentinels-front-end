@@ -34,6 +34,7 @@
     "@heroui/theme": "2.4.20",
     "@heroui/toast": "^2.0.14",
     "@heroui/tooltip": "^2.2.22",
+    "@internationalized/date": "^3.9.0",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",

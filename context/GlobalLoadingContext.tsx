@@ -22,7 +22,7 @@ export const GlobalLoadingProvider = ({
   const [loadingSources, setLoadingSources] = useState<Record<string, boolean>>(
     {}
   );
-  const [initialized, setInitialized] = useState(false); // tracks first initialization
+  const [initialized, setInitialized] = useState(false); 
   const [isDeviceRegistered, setIsDeviceRegistered] = useState<boolean | null>(
     null
   );
@@ -35,11 +35,11 @@ export const GlobalLoadingProvider = ({
       [source]: isLoading,
     }));
     setInitialized(true);
-    // mark initialized as soon as a source updates
+
   };
 
   const loading = !initialized || Object.values(loadingSources).some(Boolean);
-  // ✅ loading is true until initialized and no sources are loading
+ 
 
   return (
     <GlobalLoadingContext.Provider

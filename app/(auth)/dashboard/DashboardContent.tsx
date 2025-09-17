@@ -38,6 +38,7 @@ import { AlertCard } from "@/components/AlertCard";
 import { useBluetoothDevice } from "@/context/BluetoothDeviceContext";
 import { useAuth } from "@/context/AuthContext";
 import { useGlobalLoading } from "@/context/GlobalLoadingContext";
+import BackgroundShades from "./BackgroundShades";
 
 const DashboardContent: React.FC = () => {
   // --------------------------- Local state ---------------------------
@@ -65,9 +66,11 @@ const DashboardContent: React.FC = () => {
     hasCreatedFirstDevice,
   } = useBluetoothDevice();
 
-  const { loading, initialized, isDeviceRegistered  } = useGlobalLoading();
-  const isReady = initialized && isDeviceRegistered !== null && hasCreatedFirstDevice !== null;
-
+  const { loading, initialized, isDeviceRegistered } = useGlobalLoading();
+  const isReady =
+    initialized &&
+    isDeviceRegistered !== null &&
+    hasCreatedFirstDevice !== null;
 
   const currentDevice = devices[page - 1];
 
@@ -136,10 +139,10 @@ const DashboardContent: React.FC = () => {
   // --------------------------- CASE 2: NO DEVICES CREATED ---------------------------
   if (!hasCreatedFirstDevice) {
     return (
-      <div className="mx-auto w-full">
+      <div className="mx-auto  w-full">
         <Card className="px-8 py-6 w-full relative overflow-hidden">
           <div className="absolute inset-0 flex flex-col h-full items-center justify-center dark:bg-neutral/900 backdrop-blur-md z-10">
-            <div className="shadow-2xl border border-neutral-300 dark:border-neutral-800 rounded-xl p-10 bg-neutral-50 dark:bg-neutral-950 flex flex-col items-center">
+            <div className="shadow-2xl border border-neutral-300 flex flex-col items-center">
               <Alert
                 color="warning"
                 title="No devices found"
@@ -196,7 +199,8 @@ const DashboardContent: React.FC = () => {
 
   // --------------------------- CASE 3: REGISTERED DEVICE DASHBOARD ---------------------------
   return (
-    <div className="xl:p-14 sm:p-6 p-4">
+    <div className="xl:p-14 xl:px-32  h-full sm:p-6 p-4 overflow-x-clip relative isolate px-3 antialiased  ">
+      <BackgroundShades />
       <div className="flex justify-center mb-5 flex-col">
         <h2 className="text-2xl font-bold">Dashboard</h2>
         <p className="text-muted-foreground text-md">
@@ -220,6 +224,7 @@ const DashboardContent: React.FC = () => {
         <Pagination
           color="success"
           total={devices.length}
+          className="cursor-pointer"
           page={page}
           onChange={setPage}
         />
@@ -257,7 +262,7 @@ const DashboardContent: React.FC = () => {
                     </div>
                   </CardContent>
 
-                  <CardContent style={{ padding: "0" }} className="py-3 my-5">
+                  {/* <CardContent style={{ padding: "0" }} className="py-3 my-5">
                     <VoltageWrapper />
                   </CardContent>
                   <CardContent style={{ padding: "0" }} className="py-3 my-5">
@@ -271,7 +276,7 @@ const DashboardContent: React.FC = () => {
                   </CardContent>
                   <CardContent style={{ padding: "0" }} className="py-3 my-5">
                     <AmplitudeChart />
-                  </CardContent>
+                  </CardContent> */}
                 </Card>
               </motion.div>
             )}

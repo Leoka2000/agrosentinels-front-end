@@ -43,14 +43,12 @@ const BluetoothConnectButton: React.FC = () => {
     localConnected,
     writeSetTime,
     writeSleepOn,
-    writeSleepOff,
     startStreaming,
     getHistoricalLogs,
     latestParsedMessage,
   } = useBluetoothSensor();
 
   const [isScanning, setIsScanning] = useState(false);
-  const { isOpen, onOpen, onClose } = useDisclosure();
   const [progress, setProgress] = useState(0);
   const [packetCount, setPacketCount] = useState(0);
   const [isLogCaptureComplete, setIsLogCaptureComplete] = useState(false);
@@ -86,7 +84,7 @@ const BluetoothConnectButton: React.FC = () => {
         }
       }, 2000);
 
-      const timer3 = setTimeout(async () => {
+    /*  const timer3 = setTimeout(async () => {
         try {
           if (activeDevice.logReadCharUuid) {
             await getHistoricalLogs(
@@ -106,7 +104,7 @@ const BluetoothConnectButton: React.FC = () => {
         } catch (err) {
           console.error("❌ Auto log fetch failed:", err);
         }
-      }, 3000);
+      }, 3000); */
 
    /*   const timer4 = setTimeout(async () => {
         try {
@@ -121,7 +119,7 @@ const BluetoothConnectButton: React.FC = () => {
       return () => {
         clearTimeout(timer1);
         clearTimeout(timer2);
-        clearTimeout(timer3);
+        /*   clearTimeout(timer3); */ 
          /*  clearTimeout(timer4);  */ 
       };
     }
@@ -130,8 +128,8 @@ const BluetoothConnectButton: React.FC = () => {
     activeDevice,
     writeSleepOn,
     writeSetTime,
-    getHistoricalLogs,
-    startStreaming,
+    // getHistoricalLogs,
+    // startStreaming,
   ]);
 
   // Progress animation

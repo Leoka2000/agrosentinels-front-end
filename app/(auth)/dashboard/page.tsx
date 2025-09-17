@@ -28,24 +28,23 @@ export default function DashboardPage() {
   const router = useRouter();
 
   return (
-    <AuthProvider>
-      <SidebarProvider>
-        <AppSidebar />
-        <SidebarInset>
-          <header className="flex h-16 justify-between shrink-0 items-center gap-2">
-            <div>
-              <div className="flex items-center gap-2 px-4">
-                <SidebarTrigger className="-ml-1" />
-              </div>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="flex h-16 justify-between shrink-0 items-center gap-2">
+          <div>
+            <div className="flex items-center gap-2 px-4">
+              <SidebarTrigger className="-ml-1" />
             </div>
-            <div className="flex items-center mr-4 gap-2">
-              <ThemeSwitch />
-            </div>
-          </header>
-
+          </div>
+          <div className="flex items-center mr-4 gap-2">
+            <ThemeSwitch />
+          </div>
+        </header>
+        <div className="max-h-screen">
           <DashboardContent />
-        </SidebarInset>
-      </SidebarProvider>
-    </AuthProvider>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
