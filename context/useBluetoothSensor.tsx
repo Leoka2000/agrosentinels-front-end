@@ -100,11 +100,11 @@ interface BluetoothSensorContextValue {
   startStreaming: () => Promise<void>;
   getHistoricalLogs: (
     logReadCharUuid: string,
+    fromTimestamp?: number,
     onComplete?: () => void,
     onPacketReceived?: (hexString: string) => void
   ) => Promise<void>;
   latestParsedMessage: string | null;
-
 }
 
 // context object that will hold our bluetooth state and functions
@@ -146,8 +146,6 @@ export const BluetoothSensorProvider = ({
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
-  
-
   // ---------------- fetch active device logic ----------------
   const fetchActiveDevice = useCallback(async () => {
     if (!token) return null; // dontt fetch without a valid token
@@ -164,7 +162,7 @@ export const BluetoothSensorProvider = ({
         );
         setActiveDevice(null);
         setDeviceMetrics(null);
-       setLoadingFor("bluetooth", false);
+        setLoadingFor("bluetooth", false);
         return null;
       }
 
@@ -174,7 +172,7 @@ export const BluetoothSensorProvider = ({
         console.warn("Active device response body was empty");
         setActiveDevice(null);
         setDeviceMetrics(null);
-     setLoadingFor("bluetooth", false);
+        setLoadingFor("bluetooth", false);
         return null;
       }
 
@@ -239,7 +237,7 @@ export const BluetoothSensorProvider = ({
       setDeviceMetrics(null);
       return null;
     } finally {
-    setLoadingFor("bluetooth", false); // ✅ hydration complete
+      setLoadingFor("bluetooth", false); // ✅ hydration complete
     }
   }, [API_BASE_URL, token, page, refreshTrigger]);
 
@@ -500,6 +498,7 @@ export const BluetoothSensorProvider = ({
 
   const getHistoricalLogs = async (
     logReadCharUuid: string,
+    fromTimestamp?: number,
     onComplete?: () => void,
     onPacketReceived?: (hexString: string) => void
   ) => {
@@ -539,7 +538,7 @@ export const BluetoothSensorProvider = ({
 
     try {
       // send init timestamp. THIS WILL BE CHANGED LATER. THE USER MUST CHOSE FROM WHEN HE WANTS TO START READING THE LOGS
-      const ts = Math.floor(Date.now() / 1000);
+      const ts = fromTimestamp ?? Math.floor(Date.now() / 1000); // ✅ default = NOW if none given
       const initBuf = new Uint8Array([
         (ts >> 24) & 0xff,
         (ts >> 16) & 0xff,
@@ -547,7 +546,7 @@ export const BluetoothSensorProvider = ({
         ts & 0xff,
       ]);
       await char.writeValue(initBuf);
-      console.log("📝 Sent timestamp to log char");
+      console.log("📝 Sent timestamp to log char:", ts);
 
       //foR some reason the device keeps sending short ack-like frames so I made
       try {
@@ -752,12 +751,9 @@ export const BluetoothSensorProvider = ({
         getHistoricalLogs,
         latestParsedMessage,
         deviceMetrics,
-
       }}
     >
-
       {children}
-
     </BluetoothSensorContext.Provider>
   );
 };

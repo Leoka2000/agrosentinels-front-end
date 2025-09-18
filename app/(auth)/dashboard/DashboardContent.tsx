@@ -39,6 +39,7 @@ import { useBluetoothDevice } from "@/context/BluetoothDeviceContext";
 import { useAuth } from "@/context/AuthContext";
 import { useGlobalLoading } from "@/context/GlobalLoadingContext";
 import BackgroundShades from "./BackgroundShades";
+import GetLogsButton from "@/components/GetLogsButton";
 
 const DashboardContent: React.FC = () => {
   // --------------------------- Local state ---------------------------
@@ -217,11 +218,12 @@ const DashboardContent: React.FC = () => {
             <span className="font-medium text-xl">{currentDevice?.name}</span>
           </div>
           <BluetoothConnectButton />
+
         </div>
       </CardContent>
 
       <div className="flex justify-baseline mb-8">
-        <Pagination
+        <Pagination 
           color="success"
           total={devices.length}
           className="cursor-pointer"

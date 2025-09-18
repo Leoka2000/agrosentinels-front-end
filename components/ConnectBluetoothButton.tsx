@@ -24,6 +24,7 @@ import {
 import { Progress } from "@heroui/progress";
 import { Alert } from "@heroui/alert";
 import { Card } from "@heroui/card";
+import GetLogsButton from "./GetLogsButton";
 
 // Generate random increments summing to 100 for 60 steps
 const generateRandomIncrements = (steps: number = 60): number[] => {
@@ -179,7 +180,7 @@ const BluetoothConnectButton: React.FC = () => {
                 getHistoricalLogs(activeDevice.logReadCharUuid)
               }
               color="warning"
-              variant="faded"
+              variant="flat"
               isIconOnly
               isDisabled={!localConnected}
             >
@@ -190,7 +191,7 @@ const BluetoothConnectButton: React.FC = () => {
             <Button
               onPress={() => startStreaming()}
               color="success"
-              variant="faded"
+              variant="flat"
               isIconOnly
               isDisabled={!localConnected || !activeDevice?.measurementCharUuid}
             >
@@ -198,7 +199,7 @@ const BluetoothConnectButton: React.FC = () => {
             </Button>
           </Tooltip>
         </div>
-
+<GetLogsButton/>
         {/* Scan / Disconnect */}
         <div className="ml-2">
           {!localConnected ? (
@@ -206,7 +207,7 @@ const BluetoothConnectButton: React.FC = () => {
               <Button
                 onPress={handleScan}
                 color="success"
-                variant="shadow"
+                variant="flat"
                 isDisabled={isScanning}
                 startContent={
                   isScanning ? (
