@@ -1,13 +1,10 @@
 "use client";
 
 import React from "react";
-import {
-  Dropdown,
-  DropdownTrigger,
-  DropdownMenu,
-  DropdownItem,
-} from "@heroui/dropdown";
-import {Button, ButtonGroup} from "@heroui/button";
+import { useBluetoothSensor } from "@/context/useBluetoothSensor";
+import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/dropdown";
+import { Button, ButtonGroup } from "@heroui/button";
+
 
 export const ChevronDownIcon = () => {
   return (
@@ -25,46 +22,64 @@ export const ChevronDownIcon = () => {
     </svg>
   );
 };
-
 export default function GetLogsButton() {
   const [selectedOption, setSelectedOption] = React.useState(new Set(["1h"]));
+  const { activeDevice, getHistoricalLogs } = useBluetoothSensor();
 
-  const optionsMap: Record<
-    "1h" | "2h" | "3h" | "6h" | "12h" | "24h" | "48h",
-    string
-  > = {
-    "1h": "1 hour before",
-    "2h": "2 hours before",
-    "3h": "3 hours before",
-    "6h": "6 hours before",
-    "12h": "12 hours before",
-    "24h": "24 hours before",
-    "48h": "48 hours before",
+  const optionsMap: Record<string, string> = {
+    "10s": "10 seconds ago",
+    "1m": "1 minute ago",
+    "15m": "15 minutes ago",
+    "20m": "20 minutes ago",
+    "30m": "30 minutes ago",
+    "1h": "1 hour ago",
+    "2h": "2 hours ago",
+    "3h": "3 hours ago",
+    "6h": "6 hours ago",
+    "12h": "12 hours ago",
+    "24h": "24 hours ago",
+    "48h": "48 hours ago",
   };
 
-  // Convert Set → Array → Value
-  const selectedKey = Array.from(selectedOption)[0] as keyof typeof optionsMap;
+  const selectedKey = Array.from(selectedOption)[0];
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!activeDevice) {
+      console.warn("No active device selected");
+      return;
+    }
+
     const now = new Date();
-    let offsetHours = parseInt(selectedKey.replace("h", ""), 10);
+    let pastDate: Date;
 
-    // Subtract hours
-    const pastDate = new Date(now.getTime() - offsetHours * 60 * 60 * 1000);
+    if (selectedKey.endsWith("s")) {
+      const seconds = parseInt(selectedKey.replace("s", ""), 10);
+      pastDate = new Date(now.getTime() - seconds * 1000);
+    } else if (selectedKey.endsWith("m")) {
+      const minutes = parseInt(selectedKey.replace("m", ""), 10);
+      pastDate = new Date(now.getTime() - minutes * 60 * 1000);
+    } else if (selectedKey.endsWith("h")) {
+      const hours = parseInt(selectedKey.replace("h", ""), 10);
+      pastDate = new Date(now.getTime() - hours * 60 * 60 * 1000);
+    } else {
+      console.error("Invalid selected key", selectedKey);
+      return;
+    }
 
-    // Convert to UNIX timestamp (seconds)
     const timestamp = Math.floor(pastDate.getTime() / 1000);
-
-    // Convert to 8-char hex
     const hexTimestamp = timestamp.toString(16).toLowerCase().padStart(8, "0");
 
-    console.log("Submitted value:", hexTimestamp);
+    console.log("Fetching logs from timestamp:", hexTimestamp);
+
+    await getHistoricalLogs(activeDevice.logReadCharUuid, hexTimestamp);
   };
 
   return (
     <div className="flex flex-col items-center gap-4">
       <ButtonGroup variant="flat">
-        <Button variant="flat" color={"success"} onClick={handleSubmit}>{optionsMap[selectedKey]}</Button>
+        <Button variant="flat" color="success" onClick={handleSubmit}>
+          {optionsMap[selectedKey]}
+        </Button>
         <Dropdown placement="bottom-end">
           <DropdownTrigger>
             <Button variant="shadow" color="success" isIconOnly>
@@ -77,7 +92,11 @@ export default function GetLogsButton() {
             className="max-w-[300px]"
             selectedKeys={selectedOption}
             selectionMode="single"
-            onSelectionChange={(keys) => setSelectedOption(new Set(typeof keys === "string" ? [keys] : Array.from(keys as Set<string>)))}
+            onSelectionChange={(keys) =>
+              setSelectedOption(
+                new Set(typeof keys === "string" ? [keys] : Array.from(keys as Set<string>))
+              )
+            }
           >
             {Object.entries(optionsMap).map(([key, label]) => (
               <DropdownItem key={key}>{label}</DropdownItem>
@@ -85,8 +104,6 @@ export default function GetLogsButton() {
           </DropdownMenu>
         </Dropdown>
       </ButtonGroup>
-
-     
     </div>
   );
 }

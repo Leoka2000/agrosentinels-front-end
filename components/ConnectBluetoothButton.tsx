@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Bluetooth,
   BluetoothOff,
@@ -46,6 +46,7 @@ const BluetoothConnectButton: React.FC = () => {
     writeSleepOn,
     startStreaming,
     getHistoricalLogs,
+    characteristics,
     latestParsedMessage,
   } = useBluetoothSensor();
 
@@ -55,7 +56,7 @@ const BluetoothConnectButton: React.FC = () => {
   const [isLogCaptureComplete, setIsLogCaptureComplete] = useState(false);
   const [increments, setIncrements] = useState(generateRandomIncrements());
   const [incrementIndex, setIncrementIndex] = useState(0);
-  const [latestPacket, setLatestPacket] = useState<string | null>(null);
+  const hasInitializedRef = useRef(false);
 
   // Debug: log the active device
   useEffect(() => {
@@ -63,76 +64,39 @@ const BluetoothConnectButton: React.FC = () => {
   }, [activeDevice]);
 
   // Auto-sequence after connection
-  useEffect(() => {
-    if (
-      localConnected &&
-      activeDevice?.sleepControlCharUuid &&
-      activeDevice?.setTimeCharUuid
-    ) {
-      const timer1 = setTimeout(async () => {
-        try {
-          await writeSleepOn(activeDevice.sleepControlCharUuid);
-        } catch (err) {
-          console.error("❌ Failed Sleep ON:", err);
-        }
-      }, 1000);
+useEffect(() => {
+  if (
+    localConnected &&
+    activeDevice?.sleepControlCharUuid &&
+    activeDevice?.setTimeCharUuid &&
+    Object.keys(characteristics).length > 0 && // ✅ wait for characteristics
+    !hasInitializedRef.current
+  ) {
+    hasInitializedRef.current = true;
 
-      const timer2 = setTimeout(async () => {
-        try {
-          await writeSetTime(activeDevice.setTimeCharUuid);
-        } catch (err) {
-          console.error("❌ Failed SetTime:", err);
-        }
-      }, 2000);
+    const initDevice = async () => {
+      try {
+        console.log("⏳ Sending Sleep ON to device...");
+        await writeSleepOn(activeDevice.sleepControlCharUuid);
 
-    /*  const timer3 = setTimeout(async () => {
-        try {
-          if (activeDevice.logReadCharUuid) {
-            await getHistoricalLogs(
-              activeDevice.logReadCharUuid,
-              () => {
-                console.log("✅ getHistoricalLogs completed");
-                setIsLogCaptureComplete(true);
-              },
-              (hexString) => {
-                console.log("📥 Packet received:", hexString);
-                setLatestPacket(hexString);
-                setPacketCount((prev) => prev + 1);
-                setProgress(100);
-              }
-            );
-          }
-        } catch (err) {
-          console.error("❌ Auto log fetch failed:", err);
-        }
-      }, 3000); */
+        console.log("⏳ Sending Set Time to device...");
+        await writeSetTime(activeDevice.setTimeCharUuid);
 
-   /*   const timer4 = setTimeout(async () => {
-        try {
-          if (activeDevice.measurementCharUuid) {
-            await startStreaming();
-          }
-        } catch (err) {
-          console.error("❌ Auto log fetch failed:", err);
-        }
-      }, 4000);*/
+        console.log("✅ Device initialization complete");
+      } catch (err) {
+        console.error("❌ Device initialization failed:", err);
+      }
+    };
 
-      return () => {
-        clearTimeout(timer1);
-        clearTimeout(timer2);
-        /*   clearTimeout(timer3); */ 
-         /*  clearTimeout(timer4);  */ 
-      };
-    }
-  }, [
-    localConnected,
-    activeDevice,
-    writeSleepOn,
-    writeSetTime,
-    // getHistoricalLogs,
-    // startStreaming,
-  ]);
-
+    initDevice();
+  }
+}, [
+  localConnected,
+  activeDevice,
+  characteristics,
+  writeSleepOn,
+  writeSetTime,
+]);
   // Progress animation
   useEffect(() => {
     if (!isLogCaptureComplete && localConnected) {
@@ -199,7 +163,7 @@ const BluetoothConnectButton: React.FC = () => {
             </Button>
           </Tooltip>
         </div>
-<GetLogsButton/>
+        <GetLogsButton />
         {/* Scan / Disconnect */}
         <div className="ml-2">
           {!localConnected ? (

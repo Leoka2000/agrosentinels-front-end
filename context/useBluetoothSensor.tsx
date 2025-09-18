@@ -498,7 +498,7 @@ export const BluetoothSensorProvider = ({
 
   const getHistoricalLogs = async (
     logReadCharUuid: string,
-    fromTimestamp?: number,
+    timestampHex: string, // <- new parameter
     onComplete?: () => void,
     onPacketReceived?: (hexString: string) => void
   ) => {
@@ -513,17 +513,15 @@ export const BluetoothSensorProvider = ({
     }
     if (!token) {
       addToast({ title: "Authentication required", color: "danger" });
-      console.warn("❌ No token available, aborting historical log fetch.");
       return;
     }
 
     const numericDeviceId = activeDevice.deviceId;
-
-    const PACKET_HEX_LEN = 480; // full log packet = 240 bytes
-    const MEAS_HEX_LEN = 60; // single measurement = 30 bytes
-    const MAX_PACKETS = 8; // maximum amount of packets in one data package sent
+    const PACKET_HEX_LEN = 480;
+    const MEAS_HEX_LEN = 60;
+    const MAX_PACKETS = 8;
     const MAX_READS_PER_PACKET = 200;
-    const TIMEOUT_MS = 20000; // allow 20s instead of 10s
+    const TIMEOUT_MS = 20000;
 
     let hexBuffer = "";
     let lastPacketHex: string | null = null;
@@ -537,20 +535,19 @@ export const BluetoothSensorProvider = ({
     }, TIMEOUT_MS);
 
     try {
-      // send init timestamp. THIS WILL BE CHANGED LATER. THE USER MUST CHOSE FROM WHEN HE WANTS TO START READING THE LOGS
-      const ts = fromTimestamp ?? Math.floor(Date.now() / 1000); // ✅ default = NOW if none given
+      // convert hex timestamp to Uint8Array
       const initBuf = new Uint8Array([
-        (ts >> 24) & 0xff,
-        (ts >> 16) & 0xff,
-        (ts >> 8) & 0xff,
-        ts & 0xff,
+        parseInt(timestampHex.slice(0, 2), 16),
+        parseInt(timestampHex.slice(2, 4), 16),
+        parseInt(timestampHex.slice(4, 6), 16),
+        parseInt(timestampHex.slice(6, 8), 16),
       ]);
-      await char.writeValue(initBuf);
-      console.log("📝 Sent timestamp to log char:", ts);
 
-      //foR some reason the device keeps sending short ack-like frames so I made
+      await char.writeValue(initBuf);
+      console.log("📝 Sent timestamp to log char:", timestampHex);
+
+      // optional acknowledgment read
       try {
-        // this function to ignore them and parse only the actual relevant data
         const ackVal = await char.readValue();
         let ackHex = "";
         for (let i = 0; i < ackVal.byteLength; i++) {
@@ -561,7 +558,7 @@ export const BluetoothSensorProvider = ({
         console.warn("⚠️ No acknowledgment response received:", err);
       }
 
-      // main packet loop
+      // --- packet loop (unchanged) ---
       while (packetCount < MAX_PACKETS && !stop) {
         let readsThisPacket = 0;
 
@@ -579,25 +576,16 @@ export const BluetoothSensorProvider = ({
           if (hexPart.length === 8) {
             console.log("↩️ ACK frame ignored:", hexPart);
             readsThisPacket++;
-            // small delay to give MCU time to prepare full packet
             await new Promise((res) => setTimeout(res, 50));
             continue;
           }
 
-          // accumulate real data
-          if (hexPart.length > 0) {
-            hexBuffer += hexPart;
-          }
+          if (hexPart.length > 0) hexBuffer += hexPart;
           readsThisPacket++;
         }
 
-        if (hexBuffer.length < PACKET_HEX_LEN) {
-          console.warn("⚠️ Incomplete packet, waiting for more data...");
-          // allow next loop iteration to fetch more instead of breaking. CURRENTLY NOT WORKING
-          continue;
-        }
+        if (hexBuffer.length < PACKET_HEX_LEN) continue;
 
-        // process full packets thatb we got
         while (
           hexBuffer.length >= PACKET_HEX_LEN &&
           packetCount < MAX_PACKETS &&
@@ -610,8 +598,8 @@ export const BluetoothSensorProvider = ({
             console.log(`🛑 Packet ${packetCount + 1} is all zeros.`);
             if (onComplete) onComplete();
             hexBuffer = "";
-            packetCount = MAX_PACKETS; // exit function when we get only zeros.
-            break; // meaning no more logs and no need to continue running tbis fuznction
+            packetCount = MAX_PACKETS;
+            break;
           }
 
           if (lastPacketHex && lastPacketHex === fullPacketHex) {
@@ -651,8 +639,6 @@ export const BluetoothSensorProvider = ({
             const amplitudes = parseAmplitudeHex(measurementHex);
 
             setDeviceMetrics((prev) => ({
-              //update state related to latest values measured.
-
               ...prev,
               deviceId: numericDeviceId,
               deviceName: activeDevice.deviceName,
@@ -677,19 +663,13 @@ export const BluetoothSensorProvider = ({
             packetFormattedMessages.push(
               formatParsedMeasurementMessage(measurementHex)
             );
-            // send data to backend api
+
             await logspostMetrics(
               API_BASE_URL,
               token,
               numericDeviceId,
               unixTimestamp,
-              {
-                batteryVoltage,
-                temperature,
-                accel,
-                frequencies,
-                amplitudes,
-              }
+              { batteryVoltage, temperature, accel, frequencies, amplitudes }
             );
 
             validReadingsCount++;
