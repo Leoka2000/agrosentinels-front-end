@@ -24,27 +24,29 @@ export function AccelerometerCard() {
 
         <div className="flex gap-3">
           {axes.map((axis, i) => {
-            const numericValue = axis.value ?? NaN;
+            const numericValue = axis.value;
+
+            const isValidNumber =
+              typeof numericValue === "number" && isFinite(numericValue);
+
             return (
               <div
                 key={i}
-                className="flex relative  flex-col-reverse gap-1 text-[#818cf8] text-sm font-semibold"
+                className="flex relative flex-col-reverse gap-1 text-[#818cf8] text-sm font-semibold"
               >
                 <div className="text-2xl flex items-baseline font-bold">
-                   {numericValue != null &&
-                  (numericValue >= 0 ? (
-                    <TrendingUp className="w-4 h-4 absolute -top-1 right-0 text-green-500" />
-                  ) : (
-                    <TrendingDown className="w-4 h-4 absolute -top-1 right-0 text-red-500" />
-                  ))}
-                  {numericValue != null ? numericValue.toFixed(2) : "--"}
-                  <span className="font-light text-sm text-muted-foreground">m/s²</span> 
+                  {isValidNumber &&
+                    (numericValue >= 0 ? (
+                      <TrendingUp className="w-4 h-4 absolute dark:text-gray-200 text-gray-900 -top-1 right-0" />
+                    ) : (
+                      <TrendingDown className="w-4 h-4 absolute -top-1 right-0" />
+                    ))}
+                  {isValidNumber ? numericValue.toFixed(1) : "--"}
+                  <span className="font-light text-sm text-muted-foreground">
+                    m/s²
+                  </span>
                 </div>
-
-
-               
               </div>
-              
             );
           })}
         </div>

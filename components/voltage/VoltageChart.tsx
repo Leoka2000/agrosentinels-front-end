@@ -112,7 +112,9 @@ export const VoltageChart = () => {
       {/* --------------------------- card header --------------------------- */}
       <CardBody className="flex z-10 flex-col items-stretch !p-0 sm:flex-row">
         <div className="flex flex-1 items-center justify-start h-full gap-1 py-4 mb-4 px-6 pb-3 sm:pb-0">
-          {/* battery icon */}
+          {/* battery i
+          
+          con */}
           <Kbd className="p-2 mr-3">
             <BatteryFull size={18} strokeWidth={1.7} />
           </Kbd>

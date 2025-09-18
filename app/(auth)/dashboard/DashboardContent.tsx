@@ -140,7 +140,7 @@ const DashboardContent: React.FC = () => {
   // --------------------------- CASE 2: NO DEVICES CREATED ---------------------------
   if (!hasCreatedFirstDevice) {
     return (
-      <div className="mx-auto  w-full">
+      <div className="mx-auto h-full  w-full">
         <Card className="px-8 py-6 w-full relative overflow-hidden">
           <div className="absolute inset-0 flex flex-col h-full items-center justify-center dark:bg-neutral/900 backdrop-blur-md z-10">
             <div className="shadow-2xl border border-neutral-300 flex flex-col items-center">
@@ -200,7 +200,7 @@ const DashboardContent: React.FC = () => {
 
   // --------------------------- CASE 3: REGISTERED DEVICE DASHBOARD ---------------------------
   return (
-    <div className="xl:p-14 xl:px-32  h-full sm:p-6 p-4 overflow-x-clip relative isolate px-3 antialiased  ">
+    <div className="md:p-10 2xl:px-24  h-full sm:p-6 p-4 overflow-x-clip relative isolate px-3 antialiased  ">
       <BackgroundShades />
       <div className="flex justify-center mb-5 flex-col">
         <h2 className="text-2xl font-bold">Dashboard</h2>
@@ -307,12 +307,12 @@ const DashboardContent: React.FC = () => {
             </div>
 
             <CardContent style={{ padding: "0" }}>
-              <div className="grid auto-rows-min gap-4 space-x-2 mb-2 lg:grid-cols-3">
+              <div className="grid auto-rows-min gap-1 space-x-2  lg:grid-cols-3">
                 <AmplitudeCard />
                 <AccelerometerCard />
                 <FrequencyCard />
               </div>
-              <div className="grid grid-cols-1 space-x-2 md:grid-cols-2 py-4 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 space-x-2 md:grid-cols-2 py-4 lg:grid-cols-4 gap-1">
                 <TemperatureCard />
                 <VoltageCard />
                 <TimestampCard />
@@ -320,17 +320,6 @@ const DashboardContent: React.FC = () => {
               </div>
             </CardContent>
 
-            <CardContent style={{ padding: "0" }} className="mb-10">
-              <div className="flex md:flex-row flex-col items-baseline justify-between w-full">
-                <div className="flex justify-between items-center space-x-2 mb-4">
-                  <Kbd className="p-2">
-                    <Bluetooth size={22} />
-                  </Kbd>
-                  <span className="font-medium text-xl"></span>
-                </div>
-                <BluetoothConnectButton />
-              </div>
-            </CardContent>
           </Card>
         </div>
       )}

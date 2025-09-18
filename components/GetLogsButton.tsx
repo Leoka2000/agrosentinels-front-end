@@ -83,7 +83,7 @@ export default function GetLogsButton({ localConnected }: GetLogsButtonProps) {
   };
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex flex-col ml-2 items-center gap-4">
       <ButtonGroup variant="flat">
         <Button
           isDisabled={!localConnected}
@@ -97,7 +97,7 @@ export default function GetLogsButton({ localConnected }: GetLogsButtonProps) {
           classNames={{
             base: "before:bg-default-200",
             content:
-              "py-1 px-1 border border-default-200 bg-linear-to-br from-white to-success-50 dark:from-default-50 dark:to-success-950",
+              "py-1 px-1 border border-default-200 bg-linear-to-br from-white to-default-50 dark:from-default-50 dark:to-default-950",
           }}
           placement="bottom-end"
         >

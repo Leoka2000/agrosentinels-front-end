@@ -290,11 +290,7 @@ export const BluetoothDeviceProvider: React.FC<{
       await fetchActiveDevice(); // refresh active device state
     } catch (err: any) {
       console.error(err);
-      addToast({
-        title: "Error",
-        description: err.message || "Failed to select device",
-        color: "danger",
-      });
+     
     } finally {
       setIsSelecting(false);
 
@@ -327,10 +323,7 @@ export const BluetoothDeviceProvider: React.FC<{
       }
     } catch (err: any) {
       console.error(err);
-      addToast({
-        title: err?.message || "Connection failed",
-        color: "warning",
-      });
+     
     } finally {
       setIsScanning(false);
     }
@@ -342,7 +335,7 @@ export const BluetoothDeviceProvider: React.FC<{
       addToast({
         title: "Cannot delete device",
         description: "You must have at least one device",
-        color: "warning",
+        color: "default",
       });
       setShowDeleteModal(false);
       return;
@@ -353,7 +346,7 @@ export const BluetoothDeviceProvider: React.FC<{
     );
 
     if (!activeDevice?.id) {
-      addToast({ title: "No active device to delete", color: "warning" });
+      addToast({ title: "No device to delete", color: "warning" });
       setShowDeleteModal(false);
       return;
     }
@@ -429,10 +422,10 @@ export const BluetoothDeviceProvider: React.FC<{
       }
       setForm(mappedForm);
       setShowRegisterModal(true); // show modal after discovering services
-      addToast({ title: "Service discovery complete", color: "success" });
+    
     } catch (err) {
       console.error(err);
-      addToast({ title: "Service discovery failed", color: "danger" });
+    
     }
   };
 
@@ -520,7 +513,7 @@ export const BluetoothDeviceProvider: React.FC<{
 
         if (!patchRes.ok) throw new Error("Failed to update device status");
 
-        addToast({ title: "Device status updated to true", color: "success" });
+    
         setRefreshTrigger((prev) => (prev === 0 ? 1 : 0));
         setHasCreatedFirstDevice(true);
       }
@@ -548,7 +541,7 @@ export const BluetoothDeviceProvider: React.FC<{
 
       if (!res.ok) throw new Error("Failed to save device");
 
-      addToast({ title: "Device created successfully", color: "success" });
+      addToast({ title: "Device created successfully", color: "default" });
       setShowCreateModal(false);
 
       const updatedDevices = await fetchDevices();

@@ -105,6 +105,17 @@ interface BluetoothSensorContextValue {
     onPacketReceived?: (hexString: string) => void
   ) => Promise<void>;
   latestParsedMessage: string | null;
+
+  progress: number;
+  setProgress: React.Dispatch<React.SetStateAction<number>>;
+  packetCount: number;
+  setPacketCount: React.Dispatch<React.SetStateAction<number>>;
+  isLogCaptureComplete: boolean;
+  setIsLogCaptureComplete: React.Dispatch<React.SetStateAction<boolean>>;
+  increments: number[];
+  setIncrements: React.Dispatch<React.SetStateAction<number[]>>;
+  incrementIndex: number;
+  setIncrementIndex: React.Dispatch<React.SetStateAction<number>>;
 }
 
 // context object that will hold our bluetooth state and functions
@@ -115,6 +126,16 @@ interface BluetoothSensorProviderProps {
   children: ReactNode;
   deviceSelectionTrigger?: number;
 }
+
+// Generate random increments summing to 100 for 60 steps
+const generateRandomIncrements = (steps: number = 60): number[] => {
+  const increments = Array.from(
+    { length: steps },
+    () => Math.random() * 9.5 + 0.5
+  ); // Random 0.5–10
+  const sum = increments.reduce((acc, val) => acc + val, 0);
+  return increments.map((inc) => (inc / sum) * 100); // Normalize to sum to 100
+};
 
 export const BluetoothSensorProvider = ({
   children,
@@ -127,6 +148,12 @@ export const BluetoothSensorProvider = ({
   const [currentDevice, setCurrentDevice] = useState<BluetoothDevice | null>(
     null
   );
+
+  const [progress, setProgress] = useState(0);
+  const [packetCount, setPacketCount] = useState(0);
+  const [isLogCaptureComplete, setIsLogCaptureComplete] = useState(false);
+  const [increments, setIncrements] = useState(generateRandomIncrements());
+  const [incrementIndex, setIncrementIndex] = useState(0);
   // latest metrics and parsed message shown in ui
   const [deviceMetrics, setDeviceMetrics] = useState<DeviceMetrics | null>(
     null
@@ -299,10 +326,7 @@ export const BluetoothSensorProvider = ({
       }
     } catch (err: any) {
       console.error(err);
-      addToast({
-        title: err?.message || "Connection failed",
-        color: "warning",
-      });
+      
     }
   };
 
@@ -312,7 +336,7 @@ export const BluetoothSensorProvider = ({
       clearInterval(streamingIntervalRef.current);
       streamingIntervalRef.current = null;
       console.log("Streaming stopped and interval cleared");
-      addToast({ title: "Streaming stopped", color: "warning" });
+      addToast({ title: "Streaming stopped", color: "default" });
     }
   };
 
@@ -323,7 +347,16 @@ export const BluetoothSensorProvider = ({
     setLocalConnected(false);
     setCurrentDevice(null);
     setCharacteristics({});
-    addToast({ title: "Disconnected", color: "warning" });
+    addToast({ title: "Disconnected", color: "default" });
+
+    setProgress(0);
+    setPacketCount(0);
+    setIsLogCaptureComplete(false);
+    setIncrements(generateRandomIncrements());
+    setIncrementIndex(0);
+    setLatestParsedMessage(null);
+
+    addToast({ title: "Disconnected", color: "default" });
   };
 
   // ---------------- write current time to device ----------------
@@ -332,7 +365,7 @@ export const BluetoothSensorProvider = ({
     if (!char) {
       addToast({
         title: "Set Time characteristic not found",
-        color: "warning",
+        color: "default",
       });
       return;
     }
@@ -354,7 +387,7 @@ export const BluetoothSensorProvider = ({
       );
     } catch (err) {
       console.error("Failed to write timestamp:", err);
-      addToast({ title: "Failed to write timestamp", color: "danger" });
+      addToast({ title: "Failed to write timestamp", color: "default" });
     }
   };
 
@@ -364,7 +397,7 @@ export const BluetoothSensorProvider = ({
     if (!char) {
       addToast({
         title: "Sleep Control characteristic not found",
-        color: "warning",
+        color: "default",
       });
       return;
     }
@@ -490,7 +523,7 @@ export const BluetoothSensorProvider = ({
       addToast({ title: "Streaming started", color: "success" });
     } catch (err) {
       console.error("❌ Failed to start streaming:", err);
-      addToast({ title: "Failed to start streaming", color: "danger" });
+      addToast({ title: "Failed to start streaming", color: "default" });
     }
   };
 
@@ -504,15 +537,15 @@ export const BluetoothSensorProvider = ({
   ) => {
     const char = characteristics[logReadCharUuid];
     if (!char) {
-      addToast({ title: "Log characteristic not found", color: "warning" });
+      addToast({ title: "Log characteristic not found", color: "default" });
       return;
     }
     if (!activeDevice) {
-      addToast({ title: "No active device selected", color: "warning" });
+      addToast({ title: "No active device selected", color: "default" });
       return;
     }
     if (!token) {
-      addToast({ title: "Authentication required", color: "danger" });
+      addToast({ title: "Authentication required", color: "default" });
       return;
     }
 
@@ -596,6 +629,7 @@ export const BluetoothSensorProvider = ({
           hexBuffer = hexBuffer.slice(PACKET_HEX_LEN);
 
           if (/^0+$/.test(fullPacketHex)) {
+            setProgress(100);
             console.log(`🛑 Packet ${packetCount + 1} is all zeros.`);
             if (onComplete) onComplete();
             hexBuffer = "";
@@ -690,6 +724,8 @@ export const BluetoothSensorProvider = ({
     } finally {
       clearTimeout(timeout);
       if (onComplete) onComplete();
+      setProgress(100);
+      setIsLogCaptureComplete(true);
       console.log(`✅ Log fetch ended. Packets collected: ${packetCount}`);
     }
   };
@@ -732,6 +768,16 @@ export const BluetoothSensorProvider = ({
         getHistoricalLogs,
         latestParsedMessage,
         deviceMetrics,
+        progress,
+        setProgress,
+        packetCount,
+        setPacketCount,
+        isLogCaptureComplete,
+        setIsLogCaptureComplete,
+        increments,
+        setIncrements,
+        incrementIndex,
+        setIncrementIndex,
       }}
     >
       {children}

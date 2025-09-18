@@ -21,7 +21,6 @@ export function VoltageCard() {
     ? Math.min(Math.max(((voltage - 3.0) / (4.3 - 3.0)) * 100, 0), 100)
     : null;
 
-  // Boss’s rules for battery color
   let batteryColor = "bg-green-500";
   if (voltage != null) {
     if (voltage <= 3.5) batteryColor = "bg-red-500";

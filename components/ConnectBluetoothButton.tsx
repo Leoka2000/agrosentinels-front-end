@@ -22,19 +22,10 @@ import {
   useDisclosure,
 } from "@heroui/modal";
 import { Progress } from "@heroui/progress";
-import { Alert } from "@heroui/alert";
 import { Card } from "@heroui/card";
 import GetLogsButton from "./GetLogsButton";
+import { Alert } from "@heroui/alert";
 
-// Generate random increments summing to 100 for 60 steps
-const generateRandomIncrements = (steps: number = 60): number[] => {
-  const increments = Array.from(
-    { length: steps },
-    () => Math.random() * 9.5 + 0.5
-  ); // Random 0.5–10
-  const sum = increments.reduce((acc, val) => acc + val, 0);
-  return increments.map((inc) => (inc / sum) * 100); // Normalize to sum to 100
-};
 
 const BluetoothConnectButton: React.FC = () => {
   const {
@@ -48,14 +39,20 @@ const BluetoothConnectButton: React.FC = () => {
     getHistoricalLogs,
     characteristics,
     latestParsedMessage,
+
+      progress,
+  setProgress,
+  packetCount,
+  setPacketCount,
+  isLogCaptureComplete,
+  setIsLogCaptureComplete,
+  increments,
+  setIncrements,
+  incrementIndex,
+  setIncrementIndex,
   } = useBluetoothSensor();
 
   const [isScanning, setIsScanning] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [packetCount, setPacketCount] = useState(0);
-  const [isLogCaptureComplete, setIsLogCaptureComplete] = useState(false);
-  const [increments, setIncrements] = useState(generateRandomIncrements());
-  const [incrementIndex, setIncrementIndex] = useState(0);
   const hasInitializedRef = useRef(false);
 
   // Debug: log the active device
@@ -136,7 +133,7 @@ useEffect(() => {
     <div className="flex flex-col pt-3 gap-3">
       {/* Action Buttons */}
       <div className="flex flex-row flex-wrap w-full items-center pt-3">
-        <div className="flex flex-row gap-1.5">
+        <div className="flex flex-row gap-2">
           <Tooltip content="Fetch packets manually">
             <Button
               onPress={() =>
@@ -151,7 +148,7 @@ useEffect(() => {
               <ClipboardClock size={18} />
             </Button>
           </Tooltip>
-          <Tooltip content="Start streaming data">
+          <Tooltip  content="Start streaming data">
             <Button
               onPress={() => startStreaming()}
               color="success"
