@@ -163,7 +163,7 @@ useEffect(() => {
             </Button>
           </Tooltip>
         </div>
-        <GetLogsButton />
+        <GetLogsButton localConnected={localConnected} />
         {/* Scan / Disconnect */}
         <div className="ml-2">
           {!localConnected ? (
@@ -189,7 +189,7 @@ useEffect(() => {
               <Button
                 onPress={disconnectBluetooth}
                 color="danger"
-                variant="shadow"
+                variant="flat"
                 startContent={<BluetoothOff className="h-4 w-4" />}
               >
                 Disconnect

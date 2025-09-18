@@ -278,7 +278,8 @@ export default function ProfileContent() {
                   />
                   <Button
                     type="submit"
-                    color="primary"
+                    color="success"
+                    variant="flat"
                     isLoading={submitting.account}
                     startContent={!submitting.account && <Save size={16} />}
                   >
@@ -361,7 +362,8 @@ export default function ProfileContent() {
                   />
                   <Button
                     type="submit"
-                    color="primary"
+                 color="success"
+                    variant="flat"
                     isLoading={submitting.password}
                     startContent={!submitting.password && <Save size={16} />}
                   >
@@ -398,6 +400,7 @@ export default function ProfileContent() {
                   <Button
                     type="submit"
                     color="danger"
+                    variant="flat"
                     startContent={<Trash2 size={16} />}
                     isDisabled={true}
                   >

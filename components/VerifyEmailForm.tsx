@@ -128,7 +128,7 @@ export default function VerifyEmailForm() {
             <Button
               type="submit"
               color="success"
-              variant="shadow"
+              variant="flat"
               className="w-full"
               isLoading={loading}
               isDisabled={loading}
@@ -174,7 +174,7 @@ export default function VerifyEmailForm() {
               </ModalBody>
               <ModalFooter>
                 <Link href="/login" className="w-full">
-                  <Button color="success" className="w-full">
+                  <Button color="success" variant="flat" className="w-full">
                     Go to Login
                   </Button>
                 </Link>

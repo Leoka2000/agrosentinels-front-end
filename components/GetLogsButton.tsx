@@ -2,9 +2,17 @@
 
 import React from "react";
 import { useBluetoothSensor } from "@/context/useBluetoothSensor";
-import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/dropdown";
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownMenu,
+  DropdownItem,
+} from "@heroui/dropdown";
 import { Button, ButtonGroup } from "@heroui/button";
 
+interface GetLogsButtonProps {
+  localConnected: boolean;
+}
 
 export const ChevronDownIcon = () => {
   return (
@@ -22,7 +30,7 @@ export const ChevronDownIcon = () => {
     </svg>
   );
 };
-export default function GetLogsButton() {
+export default function GetLogsButton({ localConnected }: GetLogsButtonProps) {
   const [selectedOption, setSelectedOption] = React.useState(new Set(["1h"]));
   const { activeDevice, getHistoricalLogs } = useBluetoothSensor();
 
@@ -77,12 +85,29 @@ export default function GetLogsButton() {
   return (
     <div className="flex flex-col items-center gap-4">
       <ButtonGroup variant="flat">
-        <Button variant="flat" color="success" onClick={handleSubmit}>
+        <Button
+          isDisabled={!localConnected}
+          variant="flat"
+          color="success"
+          onClick={handleSubmit}
+        >
           {optionsMap[selectedKey]}
         </Button>
-        <Dropdown placement="bottom-end">
+        <Dropdown
+          classNames={{
+            base: "before:bg-default-200",
+            content:
+              "py-1 px-1 border border-default-200 bg-linear-to-br from-white to-success-50 dark:from-default-50 dark:to-success-950",
+          }}
+          placement="bottom-end"
+        >
           <DropdownTrigger>
-            <Button variant="shadow" color="success" isIconOnly>
+            <Button
+              isDisabled={!localConnected}
+              variant="shadow"
+              color="success"
+              isIconOnly
+            >
               <ChevronDownIcon />
             </Button>
           </DropdownTrigger>
@@ -94,7 +119,11 @@ export default function GetLogsButton() {
             selectionMode="single"
             onSelectionChange={(keys) =>
               setSelectedOption(
-                new Set(typeof keys === "string" ? [keys] : Array.from(keys as Set<string>))
+                new Set(
+                  typeof keys === "string"
+                    ? [keys]
+                    : Array.from(keys as Set<string>)
+                )
               )
             }
           >

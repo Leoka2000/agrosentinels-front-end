@@ -100,7 +100,7 @@ interface BluetoothSensorContextValue {
   startStreaming: () => Promise<void>;
   getHistoricalLogs: (
     logReadCharUuid: string,
-    fromTimestamp?: number,
+    fromTimestamp?: string,
     onComplete?: () => void,
     onPacketReceived?: (hexString: string) => void
   ) => Promise<void>;
@@ -498,7 +498,7 @@ export const BluetoothSensorProvider = ({
 
   const getHistoricalLogs = async (
     logReadCharUuid: string,
-    timestampHex: string, // <- new parameter
+    fromTimestamp?: string,
     onComplete?: () => void,
     onPacketReceived?: (hexString: string) => void
   ) => {
@@ -535,7 +535,8 @@ export const BluetoothSensorProvider = ({
     }, TIMEOUT_MS);
 
     try {
-      // convert hex timestamp to Uint8Array
+      // convert hex timestamp to Uint8Array, default to "00000000" if not provided
+      const timestampHex = fromTimestamp ?? "00000000";
       const initBuf = new Uint8Array([
         parseInt(timestampHex.slice(0, 2), 16),
         parseInt(timestampHex.slice(2, 4), 16),

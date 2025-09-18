@@ -150,7 +150,7 @@ const DashboardContent: React.FC = () => {
                 description="Please create and register your first device"
               />
               <Button
-                variant="shadow"
+                variant="flat"
                 color="success"
                 className="w-full mt-8"
                 endContent={<SquarePlus size={16} />}
@@ -295,7 +295,7 @@ const DashboardContent: React.FC = () => {
                   description="Please register it to start monitoring your device"
                 />
                 <Button
-                  variant="shadow"
+                  variant="flat"
                   color="success"
                   className="w-full mt-8"
                   onClick={scanForDevices}
@@ -384,7 +384,7 @@ const DashboardContent: React.FC = () => {
             </Button>
             <Button
               color="success"
-              variant={"shadow"}
+              variant={"flat"}
               onClick={registerDevice}
               disabled={isRegistering}
             >

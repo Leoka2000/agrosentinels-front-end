@@ -140,13 +140,14 @@ export function DeviceSwitcher() {
           </ModalBody>
           <ModalFooter>
             <Button
-              variant="bordered"
+              variant="flat"
               onPress={() => setShowCreateModal(false)}
             >
               Cancel
             </Button>
             <Button
               color="success"
+              variant="flat"
               isDisabled={!deviceName.trim() || isCreating}
               isLoading={isCreating}
               onPress={() => saveDevice(deviceName.trim())}

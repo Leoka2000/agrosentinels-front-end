@@ -124,7 +124,7 @@ export default function RegisterForm() {
           <Button
             className="w-full mt-3"
             color="success"
-            variant="shadow"
+            variant="flat"
             type="submit"
             isDisabled={loading}
             isLoading={loading}

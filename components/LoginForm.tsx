@@ -106,7 +106,7 @@ export default function LoginForm() {
           <Button
             className="w-full"
             color="success"
-            variant="shadow"
+            variant="flat"
             type="submit"
             isDisabled={loading}
             isLoading={loading}
